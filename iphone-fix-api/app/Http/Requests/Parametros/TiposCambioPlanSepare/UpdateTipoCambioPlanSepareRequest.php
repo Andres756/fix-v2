@@ -1,0 +1,22 @@
+<?php
+
+namespace App\Http\Requests\Parametros\TiposCambioPlanSepare;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class UpdateTipoCambioPlanSepareRequest extends FormRequest
+{
+    public function authorize(): bool { return true; }
+    public function rules(): array
+    {
+        $id = $this->route('tipo_cambio_plan_separe');
+        return [
+            'nombre' => ['sometimes','string','max:50',"unique:tipos_cambio_plan_separe,nombre,{$id}"],
+            'activo' => ['sometimes','boolean'],
+        ];
+    }
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('nombre')) $this->merge(['nombre'=>trim(mb_strtoupper($this->input('nombre')))]);
+    }
+}
