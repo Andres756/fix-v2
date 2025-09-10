@@ -94,4 +94,35 @@ class EquipoOrdenServicioController extends Controller
 
         return response()->json(['message' => 'Equipo eliminado'], 200);
     }
+    /**
+     * Obtiene los costos totales de un equipo.
+     */
+    public function costos($equipoId)
+    {
+        $equipo = EquipoOrdenServicio::with(['tareas', 'repuestosInventario', 'repuestosExternos'])
+            ->findOrFail($equipoId);
+
+        $costoActividades = $equipo->tareas->sum('costo_aplicado');
+        $costoRepuestos   = $equipo->repuestosInventario->sum('costo_total');
+        $costoExternos    = $equipo->repuestosExternos->sum('costo_total');
+
+        $costoReal = $costoActividades + $costoRepuestos + $costoExternos;
+
+        $valorEstimado = $equipo->valor_estimado ?? 0;
+        $diferencia    = $costoReal - $valorEstimado;
+
+        return response()->json([
+            'equipo_id'          => $equipo->id,
+            'valor_estimado'     => $valorEstimado,
+            'costo_actividades'  => $costoActividades,
+            'costo_repuestos'    => $costoRepuestos,
+            'costo_externos'     => $costoExternos,
+            'costo_real'         => $costoReal,
+            'diferencia'         => $diferencia,
+            'estado_presupuesto' => $diferencia > 0 
+                                    ? 'superado' 
+                                    : ($diferencia < 0 ? 'por_debajo' : 'exacto'),
+        ]);
+    }
+
 }

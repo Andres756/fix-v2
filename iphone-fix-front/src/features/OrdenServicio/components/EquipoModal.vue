@@ -465,7 +465,7 @@
                     :ordenId="ordenId"
                     :equipoId="inlineEquipoId"
                     :equipoImei="inlineEquipoImei"
-                    @changed="emit('updated')"
+                    @changed="handleTareasChanged"
                     @total-changed="t => (totalTareas = t)"
                   />
                   
@@ -487,42 +487,14 @@
                     @total-changed="t => (totalRepuestosExternos = t)"
                   />
                 </div>
-                
                 <div class="lg:col-span-1">
-                  <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-5 border border-green-200 sticky top-4">
-                    <div class="flex items-center space-x-3 mb-4">
-                      <div class="p-2 bg-green-100 rounded-lg">
-                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2-2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                        </svg>
-                      </div>
-                      <h5 class="font-semibold text-green-800">Resumen Financiero</h5>
-                    </div>
-                    <div class="space-y-3">
-                      <div class="flex justify-between items-center py-2">
-                        <span class="text-sm text-gray-600">Total tareas:</span>
-                        <span class="font-semibold text-green-700">{{ money(totalTareas) }}</span>
-                      </div>
-                      <div class="flex justify-between items-center py-2">
-                        <span class="text-sm text-gray-600">Total repuestos:</span>
-                        <span class="font-semibold text-green-700">{{ money(totalRepuestos) }}</span>
-                      </div>
-                      <!-- ✅ Nuevo total repuestos externos -->
-                      <div class="flex justify-between items-center py-2">
-                        <span class="text-sm text-gray-600">Total repuestos externos:</span>
-                        <span class="font-semibold text-green-700">{{ money(totalRepuestosExternos) }}</span>
-                      </div>
-                      <div v-if="currentEquipoValor" class="flex justify-between items-center py-2">
-                        <span class="text-sm text-gray-600">Valor equipo:</span>
-                        <span class="font-semibold text-green-700">{{ money(currentEquipoValor) }}</span>
-                      </div>
-                      <div class="border-t border-green-200 pt-3 flex justify-between items-center">
-                        <span class="font-semibold text-green-800">Total aproximado:</span>
-                        <span class="text-lg font-bold text-green-800">{{ money(totalGeneral) }}</span>
-                      </div>
-                    </div>
-                  </div>
+                  <EquipoCostosResumen 
+                    v-if="inlineEquipoId" 
+                    :equipoId="inlineEquipoId" 
+                    :key="refreshKey" 
+                  />
                 </div>
+
               </div>
             </div>
 
@@ -557,7 +529,11 @@ import RepuestosInventarioInline from './RepuestosInventarioInline.vue'
 import RepuestosExternosInline from './RepuestosExternosInline.vue' // ✅ Nuevo
 
 // API técnicos
-import { fetchTecnicos, type Tecnico } from '../api/tecnicos'
+import { fetchTecnicos } from '../api/tecnicos'
+import type { Tecnico } from '../types/tecnico'
+
+
+import EquipoCostosResumen from './EquipoCostosResumen.vue'
 
 // Props y emits del modal
 const props = defineProps<{ open: boolean; clienteId: number; ordenId: number }>()
@@ -602,6 +578,13 @@ onMounted(async () => {
     toast.error('No se pudieron cargar técnicos')
   }
 })
+
+// ===== actualizar resumen financiero =====
+const refreshKey = ref(0)
+
+function triggerRefresh() {
+  refreshKey.value++
+}
 
 // ===== Formulario =====
 const form = ref<CreateEquipoPayload>({
@@ -695,8 +678,19 @@ function resetForm() {
 }
 
 // ===== Handlers =====
-function handleRepuestosChanged() { emit('updated') }
-function handleRepuestosExternosChanged() { emit('updated') } // ✅ Nuevo
+function handleRepuestosChanged() { 
+  emit('updated') 
+  triggerRefresh()
+}
+function handleRepuestosExternosChanged() { 
+  emit('updated') 
+  triggerRefresh()
+}
+function handleTareasChanged() {
+  emit('updated')
+  triggerRefresh()
+}
+
 
 // ===== Guardar equipo =====
 async function guardar() {

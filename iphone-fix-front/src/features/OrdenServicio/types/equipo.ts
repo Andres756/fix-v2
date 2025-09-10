@@ -35,3 +35,14 @@ export interface CreateEquipoPayload {
   tipo_comision?: 'porcentaje' | 'fijo' | null
   valor_comision?: number | null
 }
+
+export interface EquipoCostos {
+  equipo_id: number;
+  valor_estimado: number;
+  costo_actividades: number;
+  costo_repuestos: number;
+  costo_externos: number;
+  costo_real: number;
+  diferencia: number;
+  estado_presupuesto: "superado" | "por_debajo" | "exacto";
+}

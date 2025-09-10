@@ -134,6 +134,9 @@ Route::apiResource('tipos-trabajo', TiposTrabajoController::class)
 // Listado global de órdenes (sin quitar lo anidado)
 Route::get('ordenes', [OrdenServicioController::class, 'listAll']);
 
+// Calcular costos
+Route::get('equipos/{equipoId}/costos', [EquipoOrdenServicioController::class, 'costos']);
+
 // ── Clientes
 Route::apiResource('clientes', ClienteController::class)
     ->parameters(['clientes' => 'cliente']);

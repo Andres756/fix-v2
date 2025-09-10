@@ -1,6 +1,6 @@
 // features/OrdenServicio/api/equipos.ts
 import http from '../../../shared/api/http';
-import type { Equipo, CreateEquipoPayload, UpdateEquipoPayload } from '../types/equipo'
+import type { Equipo, CreateEquipoPayload, UpdateEquipoPayload, EquipoCostos } from '../types/equipo'
 
 /** ===== Helpers para desempaquetar respuestas Laravel Resource ===== */
 function unwrap<T>(axiosResp: any): T {
@@ -52,5 +52,11 @@ export async function deleteEquipo(
 ): Promise<void> {
   await http.delete(`/clientes/${clienteId}/ordenes/${ordenId}/equipos/${equipoId}`)
 }
+
+export async function getEquipoCostos(equipoId: number): Promise<EquipoCostos> {
+  const resp = await http.get(`/equipos/${equipoId}/costos`);
+  return resp.data as EquipoCostos;
+}
+
 
 export type { Equipo, CreateEquipoPayload, UpdateEquipoPayload }
