@@ -1,5 +1,5 @@
 // src/features/OrdenServicio/api/proveedores.ts
-import http from '../utils/http' // ajusta según dónde tengas configurado axios
+import http from '../../../shared/api/http';
 
 // Tipo
 export interface Proveedor {

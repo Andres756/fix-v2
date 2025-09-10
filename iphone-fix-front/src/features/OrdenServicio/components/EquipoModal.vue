@@ -107,6 +107,7 @@
                             <h5 class="font-semibold text-gray-900 text-base truncate">
                               {{ eq.marca ? (eq.marca + ' ') : '' }}{{ eq.modelo }}
                             </h5>
+                            <!-- Dentro del div de cada equipo, reemplaza la sección de botones por esto: -->
                             <div class="flex items-center space-x-2 ml-3">
                               <button 
                                 @click="startEdit(eq)" 
@@ -135,13 +136,12 @@
                                 </svg>
                                 Repuestos
                               </button>
-                              <!-- ✅ Nuevo tab de repuestos externos -->
-                              <button
-                                @click="inlineTab = 'repuestosExternos'"
-                                :class="inlineTab === 'repuestosExternos' ? 'bg-white shadow text-orange-700' : 'text-gray-600 hover:text-gray-900'"
-                                class="flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center justify-center gap-2"
+                              <!-- ✅ Botón de Repuestos Externos - AQUÍ es donde debe estar -->
+                              <button 
+                                @click="openRepuestosExternos(eq)" 
+                                class="px-2.5 py-1.5 bg-orange-50 text-orange-700 rounded-lg hover:bg-orange-100 transition-colors text-xs font-medium flex items-center gap-1.5"
                               >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M12 8c-1.657 0-3 .843-3 1.882v8.236c0 1.039 1.343 1.882 3 1.882s3-.843 3-1.882V9.882C15 8.843 13.657 8 12 8z"/>
                                 </svg>
@@ -443,6 +443,18 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4V2a1 1 0 011-1h4a1 1 0 011 1v2M7 4h6M7 4v12a1 1 0 001 1h4a1 1 0 001-1V4M5 7h10v2H5V7z"/>
                       </svg>
                       Repuestos
+                    </button>
+                      <!-- ✅ Nuevo tab para Repuestos Externos -->
+                    <button
+                      @click="inlineTab = 'repuestosExternos'"
+                      :class="inlineTab === 'repuestosExternos' ? 'bg-white shadow text-orange-700' : 'text-gray-600 hover:text-gray-900'"
+                      class="flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center justify-center gap-2"
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M12 8c-1.657 0-3 .843-3 1.882v8.236c0 1.039 1.343 1.882 3 1.882s3-.843 3-1.882V9.882C15 8.843 13.657 8 12 8z"/>
+                      </svg>
+                      Repuestos Externos
                     </button>
                   </div>
 
