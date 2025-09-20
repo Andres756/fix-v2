@@ -184,6 +184,7 @@ const pageTitle = computed(() => {
     '/inventario': 'Inventario',
     '/facturacion': 'Facturación',
     '/ordenes': 'Órdenes de Servicio',
+    '/ordenes/tecnicos': 'Tecnicos',
     '/gastos': 'Gastos',
     '/informes': 'Informes',
     '/parametrizacion': 'Parametrización',

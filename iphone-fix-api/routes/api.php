@@ -119,6 +119,11 @@ Route::get('inventario/repuestos/search', [InventariosController::class, 'search
 
 // Tecnicos
 Route::get('tecnicos', [TecnicoController::class, 'index']);
+Route::get('/tecnicos/{id}/equipos', [TecnicoController::class, 'equiposAsignados']);
+Route::get('/tecnicos/{id}/ganancias', [TecnicoController::class, 'ganancias']);
+Route::put('/tecnicos/{id}/tareas/{tareaId}/estado', [TecnicoController::class, 'actualizarEstadoTarea']);
+Route::get('/tecnicos/{id}/tareas/{tareaId}/historial', [TecnicoController::class, 'historialTarea']);
+
 
 // OS
 Route::get('estados-orden-servicio/options', [EstadosOrdenServicioController::class, 'options']);

@@ -6,6 +6,7 @@ import Dashboard from '../views/Dashboard.vue'
 import Inventario from '../views/inventario/index.vue'
 import Facturacion from '../views/facturacion/index.vue'
 import Ordenes from '../views/ordenes-servicios/index.vue'
+import PanelTecnico from '../views/ordenes-servicios/PanelTecnico.vue'
 import Gastos from '../views/gastos/index.vue'
 import Informes from '../views/Informes/index.vue'
 import Parametrizacion from '../views/parametros/index.vue'
@@ -20,6 +21,7 @@ const routes = [
   { path: '/inventario', component: Inventario, meta: { requiresAuth: true } },
   { path: '/facturacion', component: Facturacion, meta: { requiresAuth: true } },
   { path: '/ordenes', component: Ordenes, meta: { requiresAuth: true } },
+  { path: '/ordenes/tecnicos', component: PanelTecnico, meta: { requiresAuth: true } }, // 👈 nueva ruta
   { path: '/gastos', component: Gastos, meta: { requiresAuth: true } },
   { path: '/informes', component: Informes, meta: { requiresAuth: true } },
   { path: '/parametrizacion', component: Parametrizacion, meta: { requiresAuth: true } },

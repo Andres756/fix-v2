@@ -5,22 +5,30 @@ namespace App\Http\Requests\OrdenServicio\Tarea;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class UpdateTareaRequest extends FormRequest
+class UpdateEstadoTareaRequest extends FormRequest
 {
     public function authorize(): bool
     {
+        // Aquí podrías validar que el usuario logueado sea técnico, 
+        // o esté autorizado a cambiar este estado. Por ahora lo dejamos abierto.
         return true;
     }
 
     public function rules(): array
     {
         return [
-            'equipo_os_id'    => ['prohibited'],
-            // si cambia el tipo de trabajo, debemos recibirlo y recalculamos costo
-            'tipo_trabajo_id' => ['sometimes','required','integer','exists:tipos_trabajo,id'],
-            'costo_aplicado'  => 'required|numeric|min:0', // 👈 así lo aceptas
-            'estado'          => ['sometimes', Rule::in(['pendiente','en_proceso','completada','cancelada'])],
-            'observaciones'   => ['sometimes','nullable','string'],
+            'estado' => [
+                'required',
+                Rule::in(['pendiente','en_proceso','completada','cancelada']),
+            ],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'estado.required' => 'El estado es obligatorio.',
+            'estado.in' => 'El estado debe ser uno de: pendiente, en_proceso, completada o cancelada.',
         ];
     }
 }

@@ -84,6 +84,19 @@
             </router-link>
           </li>
 
+          <li class="nav-item" :class="{ active: activeRoute === 'tecnicos' }">
+            <router-link to="/ordenes/tecnicos" class="nav-link nav-link-tecnicos" @click="handleNavClick">
+              <div class="nav-icon teal-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
+                  <path d="M5.5 21a6.5 6.5 0 0 1 13 0" stroke="currentColor" stroke-width="2"/>
+                </svg>
+              </div>
+              <span class="nav-text">Técnicos</span>
+              <div class="nav-indicator" v-if="activeRoute === 'tecnicos'"></div>
+            </router-link>
+          </li>
+
           <li class="nav-item" :class="{ active: activeRoute === 'gastos' }">
             <router-link to="/gastos" class="nav-link nav-link-gastos" @click="handleNavClick">
               <div class="nav-icon red-icon">

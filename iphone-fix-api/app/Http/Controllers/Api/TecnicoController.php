@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\OrdenServicio\EquipoOrdenServicio;
 use App\Models\OrdenServicio\TareaEquipo;
 use Illuminate\Http\Request;
+use App\Models\OrdenServicio\TareaEquipoHistorial;
 
 class TecnicoController extends Controller
 {
@@ -101,7 +102,7 @@ class TecnicoController extends Controller
             $totalGanado += $ganancia;
 
             $resumenEquipos[] = [
-                'equipo_id' => $equipo->id,
+                'equipo_os_id' => $equipo->id,
                 'modelo' => $equipo->modelo,
                 'total_tareas' => $totalTareas,
                 'comision' => [
@@ -117,4 +118,63 @@ class TecnicoController extends Controller
             'equipos' => $resumenEquipos,
         ]);
     }
+    /**
+     * Cambiar el estado de una tarea asignada a un técnico
+     */
+    public function actualizarEstadoTarea(Request $request, $tecnicoId, $tareaId)
+    {
+        $request->validate([
+            'estado' => 'required|in:pendiente,en_proceso,completada,cancelada',
+        ]);
+
+        $tarea = TareaEquipo::findOrFail($tareaId);
+
+        // Validar que el técnico tenga asignado el equipo
+        $equipo = EquipoOrdenServicio::where('id', $tarea->equipo_os_id)
+            ->where('tecnico_asignado', $tecnicoId)
+            ->firstOrFail();
+
+        $estadoAnterior = $tarea->estado;
+        $tarea->estado = $request->estado;
+        $tarea->save();
+
+        // Guardar historial
+        TareaEquipoHistorial::create([
+            'tarea_equipo_id' => $tarea->id,
+            'tecnico_id' => $tecnicoId,
+            'estado_anterior' => $estadoAnterior,
+            'estado_nuevo' => $tarea->estado,
+        ]);
+
+        return response()->json([
+            'message' => 'Estado de la tarea actualizado correctamente',
+            'tarea' => [
+                'id' => $tarea->id,
+                'nombre' => $tarea->nombre,
+                'costo_aplicado' => $tarea->costo_aplicado,
+                'estado' => $tarea->estado,
+            ]
+        ]);
+    }
+    
+        /**
+     * Historial de las tarea asignada a un técnico
+     */
+    public function historialTarea($tecnicoId, $tareaId)
+    {
+        $tarea = TareaEquipo::findOrFail($tareaId);
+
+        // Validar que la tarea pertenezca a un equipo del técnico
+        $equipo = EquipoOrdenServicio::where('id', $tarea->equipo_os_id)
+            ->where('tecnico_asignado', $tecnicoId)
+            ->firstOrFail();
+
+        $historial = $tarea->historial()
+            ->with('tecnico:id,name')
+            ->orderBy('cambiado_en', 'desc')
+            ->get();
+
+        return response()->json($historial);
+    }
+
 }
