@@ -8,6 +8,10 @@ class TareaEquipoHistorial extends Model
 {
     protected $table = 'tarea_equipo_historial';
 
+    protected $casts = [
+        'cambiado_en' => 'datetime',
+    ];
+
     protected $fillable = [
         'tarea_equipo_id',
         'tecnico_id',

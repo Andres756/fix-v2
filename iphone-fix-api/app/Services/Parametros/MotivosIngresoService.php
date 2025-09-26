@@ -1,5 +1,6 @@
 <?php
 // app/Services/Parametros/MotivosIngresoService.php
+
 namespace App\Services\Parametros;
 
 use App\Models\Parametros\MotivoIngreso;
@@ -9,11 +10,14 @@ class MotivosIngresoService
 {
     public function list(array $filters = []): LengthAwarePaginator
     {
-        $q = MotivoIngreso::query()
-            ->buscar($filters['search'] ?? null)
-            ->orderBy($filters['sort_by'] ?? 'nombre', $filters['sort_dir'] ?? 'asc');
+        $q = MotivoIngreso::query();
+        
+        if (!empty($filters['search'])) {
+            $q->where('nombre', 'like', '%' . $filters['search'] . '%');
+        }
 
-        return $q->paginate((int)($filters['per_page'] ?? 15));
+        return $q->orderBy($filters['sort_by'] ?? 'nombre', $filters['sort_dir'] ?? 'asc')
+                 ->paginate((int)($filters['per_page'] ?? 15));
     }
 
     public function create(array $data): MotivoIngreso
@@ -27,10 +31,11 @@ class MotivosIngresoService
         return $m;
     }
 
-    public function options()
+    public function options(): array
     {
         return MotivoIngreso::query()
             ->orderBy('nombre')
-            ->get(['id','nombre']);
+            ->get(['id', 'nombre'])
+            ->toArray();
     }
 }

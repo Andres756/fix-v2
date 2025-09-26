@@ -20,9 +20,7 @@ class Inventario extends Model
         'nombre_detallado',
         'codigo',
         'categoria_id',
-        'lote_id',
         'estado_inventario_id',
-        'proveedor_id',
         'tipo_inventario_id',
         'stock',
         'stock_minimo',
@@ -31,8 +29,6 @@ class Inventario extends Model
         'costo_mayor',
         'tipo_impuesto',
         'valor_impuesto',
-        'activo',
-        'fecha_ingreso',
         'notas',
         'ruta_imagen',
     ];
@@ -44,28 +40,29 @@ class Inventario extends Model
         'costo'          => 'decimal:2',
         'costo_mayor'    => 'decimal:2',
         'valor_impuesto' => 'decimal:2',
-        'precio_final'   => 'decimal:2',
-        'activo'         => 'bool',
-        'fecha_ingreso'  => 'date',
     ];
 
     protected $appends = ['imagen_url'];
 
+    // RELACIONES ACTUALIZADAS
     public function categoria()       { return $this->belongsTo(Categoria::class, 'categoria_id'); }
-    public function proveedor()       { return $this->belongsTo(Proveedor::class, 'proveedor_id'); }
-    public function lote()            { return $this->belongsTo(Lote::class, 'lote_id'); }
     public function estado()          { return $this->belongsTo(EstadoInventario::class, 'estado_inventario_id'); }
     public function tipo()            { return $this->belongsTo(TipoDeInventario::class, 'tipo_inventario_id'); }
 
+    // Alias para compatibilidad
     public function estadoInventario() { return $this->estado(); }
     public function tipoInventario()   { return $this->tipo();   }
 
+    // Detalles por tipo
     public function detalleEquipo()   { return $this->hasOne(DetalleEquipo::class, 'inventario_id'); }
     public function detalleProducto() { return $this->hasOne(DetalleProducto::class, 'inventario_id'); }
     public function detalleRepuesto() { return $this->hasOne(DetalleRepuesto::class, 'inventario_id'); }
 
+    // NUEVAS RELACIONES - Movimientos de inventario
     public function entradas()        { return $this->hasMany(EntradaProducto::class, 'inventario_id'); }
+    public function salidas()         { return $this->hasMany(SalidaProducto::class, 'inventario_id'); }
 
+    // ACCESSOR para imagen
     public function getImagenUrlAttribute(): ?string
     {
         $path = $this->ruta_imagen;

@@ -104,14 +104,21 @@ Route::prefix('parametros')->group(function () {
 Route::prefix('inventario')->group(function () {
     Route::apiResource('categorias', CategoriasController::class)
         ->parameters(['categorias' => 'categoria']);
+    
     Route::apiResource('proveedores', ProveedoresController::class)
         ->parameters(['proveedores' => 'proveedor']);
+    
     Route::apiResource('lotes', LotesController::class)
         ->parameters(['lotes' => 'lote']);
+    
     Route::apiResource('inventarios', InventariosController::class)
         ->parameters(['inventarios' => 'inventario']);
+    
     Route::apiResource('entradas-producto', EntradasProductoController::class)
         ->parameters(['entradas-producto' => 'entradas_producto']);
+    
+    Route::apiResource('salidas-producto', SalidasProductoController::class)
+        ->parameters(['salidas-producto' => 'salidas_producto']);
 });
 
 // ── Busquedad repuestos
@@ -119,11 +126,11 @@ Route::get('inventario/repuestos/search', [InventariosController::class, 'search
 
 // Tecnicos
 Route::get('tecnicos', [TecnicoController::class, 'index']);
+Route::get('/tecnicos/{id}/dashboard', [TecnicoController::class, 'dashboard']); // ✅ NUEVA
 Route::get('/tecnicos/{id}/equipos', [TecnicoController::class, 'equiposAsignados']);
 Route::get('/tecnicos/{id}/ganancias', [TecnicoController::class, 'ganancias']);
 Route::put('/tecnicos/{id}/tareas/{tareaId}/estado', [TecnicoController::class, 'actualizarEstadoTarea']);
 Route::get('/tecnicos/{id}/tareas/{tareaId}/historial', [TecnicoController::class, 'historialTarea']);
-
 
 // OS
 Route::get('estados-orden-servicio/options', [EstadosOrdenServicioController::class, 'options']);

@@ -1,7 +1,25 @@
 import http from '../../../shared/api/http'
-import type { EquipoAsignado, GananciasTecnico, HistorialTarea, Tecnico } from '../types/tecnico'
+import type { 
+  Tecnico, 
+  DashboardData, 
+  EquipoAsignado, 
+  GananciasTecnico, 
+  HistorialTarea 
+} from '../types/tecnico'
 
-// Listar equipos asignados a un técnico
+// Listar todos los técnicos (para admin)
+export async function fetchTecnicos(): Promise<Tecnico[]> {
+  const { data } = await http.get('/tecnicos')
+  return data.data as Tecnico[]
+}
+
+// Dashboard completo del técnico
+export async function fetchDashboard(tecnicoId: number): Promise<DashboardData> {
+  const { data } = await http.get(`/tecnicos/${tecnicoId}/dashboard`)
+  return data
+}
+
+// Listar equipos asignados a un técnico (método legacy - mantenido)
 export async function fetchEquiposAsignados(tecnicoId: number): Promise<EquipoAsignado[]> {
   const { data } = await http.get(`/tecnicos/${tecnicoId}/equipos`)
   return data
@@ -19,7 +37,9 @@ export async function updateTareaEstado(
   tareaId: number,
   estado: string
 ): Promise<any> {
-  const { data } = await http.put(`/tecnicos/${tecnicoId}/tareas/${tareaId}/estado`, { estado })
+  const { data } = await http.put(`/tecnicos/${tecnicoId}/tareas/${tareaId}/estado`, { 
+    estado 
+  })
   return data
 }
 
@@ -31,11 +51,3 @@ export async function fetchHistorialTarea(
   const { data } = await http.get(`/tecnicos/${tecnicoId}/tareas/${tareaId}/historial`)
   return data
 }
-
-// Listar todos los técnicos (para admin)
-export async function fetchTecnicos(): Promise<Tecnico[]> {
-  const { data } = await http.get('/tecnicos')
-  return data.data as Tecnico[]  // ⚡ extraemos solo el array
-}
-
-

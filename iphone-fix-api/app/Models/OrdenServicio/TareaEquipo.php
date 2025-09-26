@@ -34,8 +34,9 @@ class TareaEquipo extends Model
         return $this->belongsTo(TipoTrabajo::class, 'tipo_trabajo_id');
     }
 
+    // POR ESTA:
     public function historial()
     {
-        return $this->hasMany(TareaEquipoHistorial::class, 'tarea_id');
+        return $this->hasMany(TareaEquipoHistorial::class, 'tarea_equipo_id'); // ✅
     }
 }

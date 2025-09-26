@@ -2,7 +2,7 @@
   <Teleport to="body">
     <transition name="modal" appear>
       <div v-show="open" class="fixed inset-0 z-[9999] overflow-y-auto">
-        <!-- Backdrop con blur mejorado -->
+        <!-- Backdrop -->
         <div 
           class="fixed inset-0 bg-gradient-to-br from-black/30 via-black/50 to-black/70 backdrop-blur-md transition-all duration-300" 
           @click="$emit('close')" 
@@ -11,13 +11,13 @@
 
         <!-- Container centrado -->
         <div class="flex min-h-full items-center justify-center p-4">
-          <!-- Modal mejorada -->
+          <!-- Modal -->
           <div
             class="relative w-full max-w-6xl transform rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 
                    transition-all duration-300 ease-out overflow-hidden"
             role="dialog" aria-modal="true" aria-labelledby="modal-title"
           >
-            <!-- Header con gradiente sutil -->
+            <!-- Header -->
             <div class="sticky top-0 z-20 bg-gradient-to-r from-white to-gray-50/80 backdrop-blur-xl border-b border-gray-100">
               <div class="flex items-center justify-between px-6 py-4">
                 <div class="flex items-center space-x-3">
@@ -26,7 +26,7 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                     </svg>
                   </div>
-                  <h3 id="modal-title" class="text-xl font-bold text-gray-900">Nuevo inventario</h3>
+                  <h3 id="modal-title" class="text-xl font-bold text-gray-900">Nuevo Producto</h3>
                 </div>
                 <button 
                   class="flex items-center justify-center w-8 h-8 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all duration-200" 
@@ -40,13 +40,13 @@
               </div>
             </div>
 
-            <!-- Contenido con scroll mejorado -->
+            <!-- Contenido -->
             <div class="max-h-[75vh] overflow-y-auto custom-scrollbar">
               <div class="p-6 lg:p-8">
                 <div class="grid gap-8 lg:grid-cols-4">
                   <!-- Columna principal (3/4) -->
                   <div class="lg:col-span-3 space-y-8">
-                    <!-- Campos principales con mejor diseño -->
+                    <!-- Información básica -->
                     <div class="bg-gradient-to-br from-gray-50 to-white rounded-xl p-6 border border-gray-100 shadow-sm">
                       <div class="flex items-center space-x-2 mb-6">
                         <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
@@ -57,40 +57,53 @@
                         v-model="form"
                         :tipos="tipos"
                         :categorias="categorias"
-                        :estados="estados"
-                        :proveedores="proveedores"
-                        :lotes="lotes"
-                        @imagen="file => (imagen = file)"
+                        :previewUrl="previewUrl"
+                        @imagen="onImagen"
                       />
                     </div>
 
-                    <!-- Detalles específicos con transición -->
-                    <div class="bg-gradient-to-br from-indigo-50 to-white rounded-xl p-6 border border-indigo-100 shadow-sm">
-                      <div class="flex items-center space-x-2 mb-6">
-                        <div class="w-2 h-2 bg-indigo-500 rounded-full"></div>
-                        <h4 class="text-lg font-semibold text-gray-900">Detalles específicos</h4>
+                    <!-- Detalles específicos - SOLO SI HAY TIPO SELECCIONADO -->
+                    <transition name="slide-fade" mode="out-in">
+                      <div v-if="form.tipo_inventario_id" class="bg-gradient-to-br from-indigo-50 to-white rounded-xl p-6 border border-indigo-100 shadow-sm">
+                        <div class="flex items-center space-x-2 mb-6">
+                          <div class="w-2 h-2 bg-indigo-500 rounded-full"></div>
+                          <h4 class="text-lg font-semibold text-gray-900">Detalles de {{ tipoNombre(form.tipo_inventario_id) }}</h4>
+                        </div>
+                        
+                        <transition name="slide-fade" mode="out-in">
+                          <EquipoFields 
+                            v-if="isEquipo" 
+                            key="equipo"
+                            v-model:detalle="detalle_equipo" 
+                          />
+                          <ProductoFields 
+                            v-else-if="isProducto" 
+                            key="producto"
+                            v-model:detalle="detalle_producto" 
+                          />
+                          <RepuestoFields 
+                            v-else-if="isRepuesto"
+                            key="repuesto"
+                            v-model:detalle="detalle_repuesto" 
+                          />
+                        </transition>
                       </div>
-                      
-                      <transition name="slide-fade" mode="out-in">
-                        <EquipoFields 
-                          v-if="isEquipo" 
-                          key="equipo"
-                          v-model:detalle="detalle_equipo" 
-                        />
-                        <ProductoFields 
-                          v-else-if="isProducto" 
-                          key="producto"
-                          v-model:detalle="detalle_producto" 
-                        />
-                        <RepuestoFields 
-                          v-else 
-                          key="repuesto"
-                          v-model:detalle="detalle_repuesto" 
-                        />
-                      </transition>
+                    </transition>
+
+                    <!-- Nota informativa -->
+                    <div class="rounded-lg bg-blue-50 border border-blue-200 p-4">
+                      <div class="flex items-start space-x-3">
+                        <svg class="w-5 h-5 text-blue-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <div class="flex-1">
+                          <p class="text-sm font-medium text-blue-800">📦 El producto se creará con stock en 0</p>
+                          <p class="text-sm text-blue-600 mt-1">Después podrás registrar ingresos de inventario para agregar stock y asignar lotes.</p>
+                        </div>
+                      </div>
                     </div>
 
-                    <!-- Error con mejor estilo -->
+                    <!-- Error -->
                     <div v-if="error" class="rounded-lg bg-red-50 border border-red-200 p-4">
                       <div class="flex items-center space-x-2">
                         <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -101,11 +114,10 @@
                     </div>
                   </div>
 
-                  <!-- Sidebar mejorado (1/4) -->
+                  <!-- Sidebar (1/4) -->
                   <div class="space-y-6">
-                    <!-- Container sticky para resumen y progreso -->
                     <div class="sticky top-8 space-y-6">
-                      <!-- Resumen con mejor diseño -->
+                      <!-- Resumen -->
                       <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
                         <div class="flex items-center space-x-2 mb-4">
                           <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -128,21 +140,21 @@
                             <span class="font-medium text-gray-900">{{ tipoNombre(form.tipo_inventario_id) }}</span>
                           </div>
                           <div class="flex justify-between items-center py-2 border-b border-blue-100">
-                            <span class="text-gray-600">Precio:</span>
-                            <span class="font-bold text-green-600">{{ money(form.precio) }}</span>
+                            <span class="text-gray-600">Stock mínimo:</span>
+                            <span class="font-medium text-gray-900">{{ form.stock_minimo || '—' }}</span>
                           </div>
                           <div class="flex justify-between items-center py-2 border-b border-blue-100">
-                            <span class="text-gray-600">Costo:</span>
-                            <span class="font-bold text-orange-600">{{ money(form.costo) }}</span>
+                            <span class="text-gray-600">Precio venta:</span>
+                            <span class="font-bold text-green-600">{{ money(form.precio) }}</span>
                           </div>
                           <div class="flex justify-between items-center py-2">
-                            <span class="text-gray-600">Stock:</span>
-                            <span class="font-medium text-gray-900">{{ form.stock ?? '—' }}</span>
+                            <span class="text-gray-600">Precio mayor:</span>
+                            <span class="font-bold text-orange-600">{{ money(form.costo_mayor) }}</span>
                           </div>
                         </div>
                       </div>
 
-                      <!-- Progress indicator -->
+                      <!-- Progreso -->
                       <div class="bg-gray-50 rounded-xl p-4 border border-gray-100">
                         <div class="flex items-center space-x-2 mb-3">
                           <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -164,7 +176,7 @@
               </div>
             </div>
 
-            <!-- Footer mejorado -->
+            <!-- Footer -->
             <div class="sticky bottom-0 z-20 bg-gradient-to-r from-white to-gray-50/80 backdrop-blur-xl border-t border-gray-100">
               <div class="px-6 py-4 flex items-center justify-between">
                 <div class="flex items-center space-x-2 text-sm text-gray-500">
@@ -199,7 +211,7 @@
                       </svg>
                       <span>Guardando...</span>
                     </span>
-                    <span v-else>Guardar inventario</span>
+                    <span v-else>Crear Producto</span>
                   </button>
                 </div>
               </div>
@@ -211,8 +223,257 @@
   </Teleport>
 </template>
 
+<script setup lang="ts">
+import { ref, computed, watch, onMounted } from 'vue';
+import CoreFields from './forms/CoreFields.vue';
+import EquipoFields from './forms/EquipoFields.vue';
+import ProductoFields from './forms/ProductoFields.vue';
+import RepuestoFields from './forms/RepuestoFields.vue';
+
+import {
+  createInventario,
+  fetchTiposInventarioOptions,
+  fetchCategoriasOptions,
+} from '../api/inventario';
+import type { CreateInventarioPayload } from '../api/inventario';
+import type { Option } from '../../../shared/types/common';
+
+const props = defineProps<{ open: boolean }>();
+const emit = defineEmits<{ (e: 'close'): void; (e: 'created'): void }>();
+
+// ✅ Estado principal - SIMPLIFICADO (sin estado, proveedor, lote, stock, costo)
+const form = ref<CreateInventarioPayload>({
+  nombre: '',
+  nombre_detallado: '',
+  codigo: '',
+  tipo_inventario_id: null as any,
+  categoria_id: null as any,
+  stock_minimo: null as any,
+  precio: null as any,
+  costo_mayor: null as any,
+  tipo_impuesto: null as any,
+  valor_impuesto: null as any,
+  notas: ''
+});
+
+// Detalles por tipo
+const detalle_equipo = ref({ 
+  imei_1: '', imei_2: '', estado_fisico: '', 
+  version_ios: '', almacenamiento: '', color: '' 
+});
+const detalle_producto = ref({ 
+  material: '', compatibilidad: '', tipo_accesorio: '' 
+});
+const detalle_repuesto = ref({ 
+  modelo_compatible: '', tipo_repuesto: '', 
+  referencia_fabricante: '', garantia_meses: null as any 
+});
+
+// ✅ Opciones - SOLO tipos y categorías
+const tipos = ref<Option[]>([]);
+const categorias = ref<Option[]>([]);
+
+const idEquipos = computed(() => tipos.value.find(t => (t.nombre || '').toUpperCase() === 'EQUIPOS')?.id ?? null);
+const idProductos = computed(() => tipos.value.find(t => (t.nombre || '').toUpperCase() === 'PRODUCTOS')?.id ?? null);
+const idRepuestos = computed(() => tipos.value.find(t => (t.nombre || '').toUpperCase() === 'REPUESTOS')?.id ?? null);
+
+const isEquipo = computed(() => form.value.tipo_inventario_id === idEquipos.value);
+const isProducto = computed(() => form.value.tipo_inventario_id === idProductos.value);
+const isRepuesto = computed(() => form.value.tipo_inventario_id === idRepuestos.value);
+
+// ✅ Progreso ajustado
+const completionPercentage = computed(() => {
+  const basicFields = ['nombre', 'codigo', 'tipo_inventario_id', 'categoria_id', 'stock_minimo', 'precio', 'costo_mayor'];
+  const completedBasic = basicFields.filter(field => {
+    const value = form.value[field as keyof typeof form.value];
+    return value !== null && value !== undefined && value !== '' && 
+           !(typeof value === 'number' && isNaN(value));
+  }).length;
+
+  let specificCompleted = 0;
+  let specificTotal = 0;
+
+  if (isEquipo.value) {
+    specificTotal = 1;
+    specificCompleted = detalle_equipo.value.imei_1.trim() ? 1 : 0;
+  } else if (isRepuesto.value) {
+    specificTotal = 2;
+    specificCompleted = (detalle_repuesto.value.modelo_compatible ? 1 : 0) + 
+                       (detalle_repuesto.value.tipo_repuesto ? 1 : 0);
+  }
+
+  const totalFields = basicFields.length + specificTotal;
+  const totalCompleted = completedBasic + specificCompleted;
+
+  return totalFields > 0 ? Math.round((totalCompleted / totalFields) * 100) : 0;
+});
+
+// ✅ Validación ajustada
+const canSave = computed(() => {
+  const basic = form.value.nombre &&
+                form.value.codigo &&
+                form.value.tipo_inventario_id &&
+                form.value.categoria_id &&
+                form.value.stock_minimo !== null && form.value.stock_minimo > 0 &&
+                form.value.precio !== null && form.value.precio > 0 &&
+                form.value.costo_mayor !== null && form.value.costo_mayor > 0;
+
+  if (!basic) return false;
+
+  if (isEquipo.value) return !!detalle_equipo.value.imei_1?.trim();
+  if (isRepuesto.value) return !!detalle_repuesto.value.modelo_compatible?.trim();
+
+  return true;
+});
+
+// Cargar categorías filtradas
+async function loadCategorias() {
+  categorias.value = await fetchCategoriasOptions(
+    form.value.tipo_inventario_id || undefined
+  ).catch(() => []);
+  
+  if (form.value.categoria_id && 
+      !categorias.value.some(c => Number(c.id) === Number(form.value.categoria_id))) {
+    form.value.categoria_id = null as any;
+  }
+}
+
+// Watchers
+watch(() => form.value.tipo_inventario_id, async () => {
+  // Reset detalles
+  detalle_equipo.value = { imei_1: '', imei_2: '', estado_fisico: '', version_ios: '', almacenamiento: '', color: '' };
+  detalle_producto.value = { material: '', compatibilidad: '', tipo_accesorio: '' };
+  detalle_repuesto.value = { modelo_compatible: '', tipo_repuesto: '', referencia_fabricante: '', garantia_meses: null };
+  
+  await loadCategorias();
+});
+
+// Cargar opciones
+onMounted(async () => {
+  tipos.value = await fetchTiposInventarioOptions().catch(() => []);
+  await loadCategorias();
+});
+
+// Imagen
+let imagen: File | null = null;
+const previewUrl = ref<string | null>(null);
+
+function onImagen(file: File | null) {
+  imagen = file ?? null;
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value);
+    previewUrl.value = null;
+  }
+  if (imagen) {
+    previewUrl.value = URL.createObjectURL(imagen);
+  }
+}
+
+// Utilidades
+function money(n: any) {
+  const num = Number(n ?? 0);
+  return new Intl.NumberFormat('es-CO', { 
+    style: 'currency', 
+    currency: 'COP', 
+    maximumFractionDigits: 0 
+  }).format(num || 0);
+}
+
+function tipoNombre(id?: number | null) {
+  if (!id) return '—';
+  const t = tipos.value.find(x => Number(x.id) === Number(id));
+  return t?.nombre ?? '—';
+}
+
+const saving = ref(false);
+const error = ref<string | null>(null);
+
+async function guardar() {
+  error.value = null;
+
+  const payload: CreateInventarioPayload = {
+    ...form.value,
+    ...(isEquipo.value ? { 
+      detalle_equipo: { 
+        ...detalle_equipo.value, 
+        imei_1: detalle_equipo.value.imei_1.trim() 
+      } 
+    } : {}),
+    ...(isProducto.value ? { detalle_producto: { ...detalle_producto.value } } : {}),
+    ...(isRepuesto.value ? { detalle_repuesto: { ...detalle_repuesto.value } } : {}),
+  };
+
+  try {
+    saving.value = true;
+    await createInventario(payload, imagen || undefined);
+    showToast('✅ Producto creado con stock en 0. Ahora puedes registrar ingresos de inventario.', 'success');
+    emit('created');
+    reset();
+  } catch (e: any) {
+    const errorMessage = e?.response?.data?.message || 'No se pudo guardar el producto.';
+    error.value = errorMessage;
+    showToast(errorMessage, 'error');
+    console.error('Error al crear inventario:', e);
+  } finally {
+    saving.value = false;
+  }
+}
+
+function showToast(message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') {
+  if (typeof window !== 'undefined' && (window as any).toast) {
+    (window as any).toast(message, { type });
+  } else {
+    console.log(`Toast [${type}]: ${message}`);
+    createSimpleToast(message, type);
+  }
+}
+
+function createSimpleToast(message: string, type: string) {
+  const toast = document.createElement('div');
+  toast.className = `fixed top-4 right-4 z-[10000] px-6 py-4 rounded-lg shadow-lg text-white font-medium transform transition-all duration-300 max-w-md`;
+  const bgColors = { 
+    success: 'bg-green-500', 
+    error: 'bg-red-500', 
+    warning: 'bg-yellow-500', 
+    info: 'bg-blue-500' 
+  };
+  toast.classList.add(bgColors[type as keyof typeof bgColors] || bgColors.info);
+  toast.textContent = message;
+  toast.style.transform = 'translateX(100%)';
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.transform = 'translateX(0)'; }, 100);
+  setTimeout(() => {
+    toast.style.transform = 'translateX(100%)';
+    setTimeout(() => { 
+      if (document.body.contains(toast)) document.body.removeChild(toast); 
+    }, 300);
+  }, 4000);
+}
+
+function reset() {
+  form.value = {
+    nombre: '',
+    nombre_detallado: '',
+    codigo: '',
+    tipo_inventario_id: null as any,
+    categoria_id: null as any,
+    stock_minimo: null as any,
+    precio: null as any,
+    costo_mayor: null as any,
+    tipo_impuesto: null as any,
+    valor_impuesto: null as any,
+    notas: ''
+  };
+  detalle_equipo.value = { imei_1: '', imei_2: '', estado_fisico: '', version_ios: '', almacenamiento: '', color: '' };
+  detalle_producto.value = { material: '', compatibilidad: '', tipo_accesorio: '' };
+  detalle_repuesto.value = { modelo_compatible: '', tipo_repuesto: '', referencia_fabricante: '', garantia_meses: null };
+  imagen = null;
+  previewUrl.value = null;
+  error.value = null;
+}
+</script>
+
 <style scoped>
-/* Animaciones de modal */
 .modal-enter-active, .modal-leave-active {
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -221,7 +482,6 @@
   transform: scale(0.95) translateY(-20px);
 }
 
-/* Animaciones de contenido */
 .slide-fade-enter-active {
   transition: all 0.3s cubic-bezier(0.55, 0.055, 0.675, 0.19);
 }
@@ -237,7 +497,6 @@
   opacity: 0;
 }
 
-/* Scrollbar personalizado */
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;
 }
@@ -252,299 +511,4 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
-
-/* Hover effects */
-.hover-lift:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-}
 </style>
-
-<script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
-import CoreFields from './forms/CoreFields.vue';
-import EquipoFields from './forms/EquipoFields.vue';
-import ProductoFields from './forms/ProductoFields.vue';
-import RepuestoFields from './forms/RepuestoFields.vue';
-
-import {
-  createInventario,
-  fetchTiposInventarioOptions,
-  fetchEstadosInventarioOptions,
-  fetchCategoriasOptions,   // ← usaremos el filtro por tipo
-  fetchProveedoresOptions,
-  fetchLotesOptions
-} from '../api/inventario';
-import type { CreateInventarioPayload } from '../api/inventario';
-import type { Option } from '../../../shared/types/common';
-
-const props = defineProps<{ open: boolean }>();
-const emit = defineEmits<{ (e: 'close'): void; (e: 'created'): void }>();
-
-// Estado principal
-const form = ref<CreateInventarioPayload>({
-  nombre: '',
-  nombre_detallado: '',            // ← NUEVO
-  codigo: '',
-  tipo_inventario_id: null as any,
-  categoria_id: null as any,
-  estado_inventario_id: null as any,
-  proveedor_id: null as any,
-  lote_id: null,
-  stock: null,
-  stock_minimo: null,
-  precio: null as any,
-  costo: null as any,
-  costo_mayor: null as any,        // ← NUEVO
-  tipo_impuesto: null as any,
-  valor_impuesto: null as any,
-  notas: ''
-});
-
-// Detalles por tipo
-const detalle_equipo = ref({ imei_1: '', imei_2: '', estado_fisico: '', version_ios: '', almacenamiento: '', color: '' });
-const detalle_producto = ref({ material: '', compatibilidad: '', tipo_accesorio: '' });
-const detalle_repuesto = ref({ modelo_compatible: '', tipo_repuesto: '', referencia_fabricante: '', garantia_meses: null as any });
-
-// Opciones
-const tipos = ref<Option[]>([]);
-const estados = ref<Option[]>([]);
-const categorias = ref<Option[]>([]);
-const proveedores = ref<Option[]>([]);
-const lotes = ref<Option[]>([]);
-
-const idEquipos = computed(() => tipos.value.find(t => (t.nombre || '').toUpperCase() === 'EQUIPOS')?.id ?? null);
-const idProductos = computed(() => tipos.value.find(t => (t.nombre || '').toUpperCase() === 'PRODUCTOS')?.id ?? null);
-const idRepuestos = computed(() => tipos.value.find(t => (t.nombre || '').toUpperCase() === 'REPUESTOS')?.id ?? null);
-
-const isEquipo = computed(() => form.value.tipo_inventario_id === idEquipos.value);
-const isProducto = computed(() => form.value.tipo_inventario_id === idProductos.value);
-const isRepuesto = computed(() => form.value.tipo_inventario_id === idRepuestos.value);
-
-// Progreso de completado mejorado
-const completionPercentage = computed(() => {
-  const basicFields = ['nombre', 'codigo', 'tipo_inventario_id', 'categoria_id', 'estado_inventario_id', 'proveedor_id', 'precio', 'costo'];
-  const completedBasic = basicFields.filter(field => {
-    const value = form.value[field as keyof typeof form.value];
-    return value !== null && value !== undefined && value !== '';
-  }).length;
-
-  let specificCompleted = 0;
-  let specificTotal = 0;
-
-  if (isEquipo.value) {
-    const equipoFields = ['imei_1'];
-    specificTotal = equipoFields.length;
-    specificCompleted = equipoFields.filter(field => {
-      const value = detalle_equipo.value[field as keyof typeof detalle_equipo.value];
-      return value !== null && value !== undefined && value !== '';
-    }).length;
-  } else if (isProducto.value) {
-    const productoFields = ['material', 'compatibilidad'];
-    specificTotal = productoFields.length;
-    specificCompleted = productoFields.filter(field => {
-      const value = detalle_producto.value[field as keyof typeof detalle_producto.value];
-      return value !== null && value !== undefined && value !== '';
-    }).length;
-  } else if (isRepuesto.value) {
-    const repuestoFields = ['modelo_compatible', 'tipo_repuesto'];
-    specificTotal = repuestoFields.length;
-    specificCompleted = repuestoFields.filter(field => {
-      const value = detalle_repuesto.value[field as keyof typeof detalle_repuesto.value];
-      return value !== null && value !== undefined && value !== '';
-    }).length;
-  }
-
-  const totalFields = basicFields.length + specificTotal;
-  const totalCompleted = completedBasic + specificCompleted;
-
-  return Math.round((totalCompleted / totalFields) * 100);
-});
-
-// Validación mejorada para habilitar guardar
-const canSave = computed(() => {
-  const basicValid = form.value.nombre &&
-                    form.value.codigo &&
-                    form.value.tipo_inventario_id &&
-                    form.value.categoria_id &&
-                    form.value.estado_inventario_id &&
-                    form.value.proveedor_id &&
-                    form.value.precio !== null &&
-                    form.value.costo !== null;
-
-  let specificValid = true;
-
-  if (isEquipo.value) {
-    specificValid = detalle_equipo.value.imei_1.trim() !== '';
-  } else if (isProducto.value) {
-    specificValid = detalle_producto.value.material !== '' ||
-                   detalle_producto.value.compatibilidad !== '';
-  } else if (isRepuesto.value) {
-    specificValid = detalle_repuesto.value.modelo_compatible !== '' ||
-                   detalle_repuesto.value.tipo_repuesto !== '';
-  }
-
-  return basicValid && specificValid;
-});
-
-// Cargar categorías filtradas por tipo
-async function loadCategorias() {
-  categorias.value = await fetchCategoriasOptions(form.value.tipo_inventario_id || undefined).catch(() => []);
-  // si la categoría actual no está en la lista filtrada, limpiar para evitar FK inválida
-  if (form.value.categoria_id && !categorias.value.some(c => Number(c.id ?? (c as any).value) === Number(form.value.categoria_id))) {
-    form.value.categoria_id = null as any;
-  }
-}
-
-// Watchers
-watch(isEquipo, eq => {
-  if (eq) {
-    form.value.stock = 1;
-    form.value.stock_minimo = 1;
-  }
-});
-
-watch(() => form.value.stock, () => {
-  if (isEquipo.value) form.value.stock = 1;
-});
-
-watch(() => form.value.stock_minimo, () => {
-  if (isEquipo.value) form.value.stock_minimo = 1;
-});
-
-watch(() => form.value.tipo_inventario_id, async () => {
-  // reset de detalles
-  detalle_equipo.value = { imei_1: '', imei_2: '', estado_fisico: '', version_ios: '', almacenamiento: '', color: '' };
-  detalle_producto.value = { material: '', compatibilidad: '', tipo_accesorio: '' };
-  detalle_repuesto.value = { modelo_compatible: '', tipo_repuesto: '', referencia_fabricante: '', garantia_meses: null };
-
-  // recargar categorías por tipo
-  await loadCategorias();
-});
-
-// Cargar opciones
-onMounted(async () => {
-  [tipos.value, estados.value] = await Promise.all([
-    fetchTiposInventarioOptions().catch(() => []),
-    fetchEstadosInventarioOptions(false).catch(() => [])
-  ]);
-
-  await loadCategorias(); // ← inicial (si no hay tipo, trae todas o vacío según backend)
-
-  [proveedores.value, lotes.value] = await Promise.all([
-    fetchProveedoresOptions().catch(() => []),
-    fetchLotesOptions().catch(() => []),
-  ]);
-});
-
-let imagen: File | null = null;
-function onImagen(file: File | null) {  // ← handler para el emit del hijo
-  imagen = file;
-}
-
-// Utilidades
-function money(n: any) {
-  const num = Number(n ?? 0);
-  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(num || 0);
-}
-
-function tipoNombre(id?: number | null) {
-  const key = Number(id);
-  const t = (tipos.value as any[]).find(x => Number(x.id ?? x.value) === key);
-  return t?.nombre ?? t?.label ?? '—';
-}
-
-const saving = ref(false);
-const error = ref<string | null>(null);
-
-async function guardar() {
-  error.value = null;
-
-  if (isEquipo.value && !detalle_equipo.value.imei_1.trim()) {
-    showToast('El IMEI 1 es requerido para equipos', 'error');
-    return;
-  }
-
-  const payload: CreateInventarioPayload = {
-    ...form.value,                                 // incluye nombre_detallado y costo_mayor
-    precio: Number(form.value.precio ?? 0),
-    costo: Number(form.value.costo ?? 0),
-    costo_mayor: form.value.costo_mayor != null ? Number(form.value.costo_mayor) : undefined,
-    tipo_impuesto: (form.value.tipo_impuesto ?? 'n/a') as any,
-    valor_impuesto:
-      form.value.tipo_impuesto && form.value.tipo_impuesto !== 'n/a'
-        ? Number(form.value.valor_impuesto ?? 0)
-        : undefined,
-    ...(isEquipo.value   ? { detalle_equipo:   { ...detalle_equipo.value, imei_1: detalle_equipo.value.imei_1.trim() } } : {}),
-    ...(isProducto.value ? { detalle_producto: { ...detalle_producto.value } } : {}),
-    ...(isRepuesto.value ? { detalle_repuesto: { ...detalle_repuesto.value } } : {}),
-  };
-
-  try {
-    saving.value = true;
-    await createInventario(payload, imagen || undefined);
-    showToast('¡Inventario creado exitosamente!', 'success');
-    emit('created');
-    reset();
-  } catch (e: any) {
-    const errorMessage = e?.response?.data?.message || 'No se pudo guardar el inventario.';
-    error.value = errorMessage;
-    showToast(errorMessage, 'error');
-    console.error('Error al crear inventario:', e);
-  } finally {
-    saving.value = false;
-  }
-}
-
-// Función para mostrar toasts
-function showToast(message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') {
-  if (typeof window !== 'undefined' && (window as any).toast) {
-    (window as any).toast(message, { type });
-  } else {
-    console.log(`Toast [${type}]: ${message}`);
-    createSimpleToast(message, type);
-  }
-}
-
-// Toast simple nativo como fallback
-function createSimpleToast(message: string, type: string) {
-  const toast = document.createElement('div');
-  toast.className = `fixed top-4 right-4 z-[10000] px-6 py-4 rounded-lg shadow-lg text-white font-medium transform transition-all duration-300 max-w-md`;
-  const bgColors = { success: 'bg-green-500', error: 'bg-red-500', warning: 'bg-yellow-500', info: 'bg-blue-500' };
-  toast.classList.add(bgColors[type as keyof typeof bgColors] || bgColors.info);
-  toast.textContent = message;
-  toast.style.transform = 'translateX(100%)';
-  document.body.appendChild(toast);
-  setTimeout(() => { toast.style.transform = 'translateX(0)'; }, 100);
-  setTimeout(() => {
-    toast.style.transform = 'translateX(100%)';
-    setTimeout(() => { if (document.body.contains(toast)) document.body.removeChild(toast); }, 300);
-  }, 4000);
-}
-
-function reset() {
-  form.value = {
-    nombre: '',
-    nombre_detallado: '',         // ← NUEVO
-    codigo: '',
-    tipo_inventario_id: null as any,
-    categoria_id: null as any,
-    estado_inventario_id: null as any,
-    proveedor_id: null as any,
-    lote_id: null,
-    stock: null,
-    stock_minimo: null,
-    precio: null as any,
-    costo: null as any,
-    costo_mayor: null as any,     // ← NUEVO
-    tipo_impuesto: null as any,
-    valor_impuesto: null as any,
-    notas: ''
-  };
-  detalle_equipo.value = { imei_1: '', imei_2: '', estado_fisico: '', version_ios: '', almacenamiento: '', color: '' };
-  detalle_producto.value = { material: '', compatibilidad: '', tipo_accesorio: '' };
-  detalle_repuesto.value = { modelo_compatible: '', tipo_repuesto: '', referencia_fabricante: '', garantia_meses: null };
-  imagen = null;
-  error.value = null;
-}
-</script>

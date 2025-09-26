@@ -242,8 +242,11 @@
                   <span :class="stockBadgeClass(it)" class="group-hover:scale-105 transition-transform duration-200">
                     {{ num(it.stock) }}
                   </span>
-                  <span class="text-xs text-gray-400">/ {{ num(it.stock_minimo) }}</span>
-                  <div v-if="num(it.stock) <= num(it.stock_minimo)" class="ml-1">
+                  <!-- 👈 CORREGIDO: Solo mostrar stock_minimo si existe y es mayor que 0 -->
+                  <span v-if="num(it.stock_minimo) > 0" class="text-xs text-gray-400">
+                    / {{ num(it.stock_minimo) }}
+                  </span>
+                  <div v-if="num(it.stock) <= num(it.stock_minimo) && num(it.stock_minimo) > 0" class="ml-1">
                     <svg class="h-4 w-4 text-red-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.664-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z"/>
                     </svg>
@@ -251,21 +254,17 @@
                 </div>
               </td>
 
-              <!-- Estado -->
+              <!-- Estado con colores dinámicos -->
               <td class="px-6 py-4 whitespace-nowrap">
                 <span
                   class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200"
-                  :class="(it.estado || it.estado_inventario || it.estado_inventario_id) 
-                    ? 'bg-green-100 text-green-800 group-hover:bg-green-200' 
-                    : 'bg-gray-100 text-gray-600 group-hover:bg-gray-200'"
+                  :class="getEstadoBadgeClass(it)"
                 >
                   <div 
                     class="w-2 h-2 rounded-full mr-2"
-                    :class="(it.estado || it.estado_inventario || it.estado_inventario_id) 
-                      ? 'bg-green-400' 
-                      : 'bg-gray-400'"
+                    :class="getEstadoDotClass(it)"
                   ></div>
-                  {{ it.estado?.nombre ?? it.estado_inventario?.nombre ?? estadoNombre(it.estado_inventario_id) }}
+                  {{ getEstadoNombre(it) }}
                 </span>
               </td>
 
@@ -362,6 +361,90 @@ import type { Inventario } from '../../features/inventario/types/inventario';
 import type { PaginationMeta } from '../../shared/types/pagination';
 import type { Option } from '../../shared/types/common';
 
+// 🎨 FUNCIONES PARA COLORES SEGÚN ESTADO_INVENTARIO_ID
+function getEstadoNombre(item: Inventario): string {
+  // Priorizar estado_inventario_id directo
+  const estadoId = Number(item.estado_inventario_id);
+  
+  switch (estadoId) {
+    case 1:
+      return 'DISPONIBLE';
+    case 2:
+      return 'SIN STOCK';
+    case 3:
+      return 'STOCK BAJO';
+    default:
+      // Fallback a relaciones si existe
+      if (item.estado?.nombre) return item.estado.nombre;
+      if (item.estado_inventario?.nombre) return item.estado_inventario.nombre;
+      
+      // Último fallback por búsqueda en array
+      if (estadoId) {
+        const estado = estados.value.find(e => e.id === estadoId);
+        if (estado) return estado.nombre;
+      }
+      
+      return 'Sin estado';
+  }
+}
+
+function getEstadoBadgeClass(item: Inventario): string {
+  const estadoId = Number(item.estado_inventario_id);
+  
+  switch (estadoId) {
+    case 1: // DISPONIBLE
+      return 'bg-green-100 text-green-800 border border-green-200 group-hover:bg-green-200 group-hover:scale-105';
+    case 2: // SIN STOCK  
+      return 'bg-red-100 text-red-800 border border-red-200 group-hover:bg-red-200 group-hover:scale-105';
+    case 3: // STOCK BAJO
+      return 'bg-orange-100 text-orange-800 border border-orange-200 group-hover:bg-orange-200 group-hover:scale-105';
+    default:
+      return 'bg-gray-100 text-gray-600 border border-gray-200 group-hover:bg-gray-200';
+  }
+}
+
+function getEstadoDotClass(item: Inventario): string {
+  const estadoId = Number(item.estado_inventario_id);
+  
+  switch (estadoId) {
+    case 1: // DISPONIBLE
+      return 'bg-green-500 group-hover:bg-green-600';
+    case 2: // SIN STOCK
+      return 'bg-red-500 group-hover:bg-red-600 animate-pulse';
+    case 3: // STOCK BAJO  
+      return 'bg-orange-500 group-hover:bg-orange-600 animate-pulse';
+    default:
+      return 'bg-gray-400';
+  }
+}
+
+// 🎨 ACTUALIZAR TAMBIÉN LA FUNCIÓN DE STOCK PARA CONSISTENCIA
+function stockBadgeClass(it: Inventario) {
+  const stock = num(it.stock);
+  const estadoId = Number(it.estado_inventario_id);
+  
+  // Usar el mismo criterio que el estado para consistencia visual
+  switch (estadoId) {
+    case 1: // DISPONIBLE
+      return 'inline-flex px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200 group-hover:scale-105';
+    case 2: // SIN STOCK
+      return 'inline-flex px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200 group-hover:scale-105';
+    case 3: // STOCK BAJO
+      return 'inline-flex px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 border border-orange-200 group-hover:scale-105';
+    default:
+      // Fallback al cálculo anterior si no hay estado definido
+      const minimo = num(it.stock_minimo);
+      if (minimo === 0) {
+        return stock > 0
+          ? 'inline-flex px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200'
+          : 'inline-flex px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200';
+      }
+      return stock <= minimo
+        ? 'inline-flex px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 border border-orange-200'
+        : 'inline-flex px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200';
+  }
+}
+
 const items = ref<Inventario[]>([]);
 const meta = ref<PaginationMeta | null>(null);
 const tipos = ref<Option[]>([]);
@@ -449,12 +532,6 @@ function tipoNombre(id?: number | string) {
 function estadoNombre(id?: number | string) {
   const key = Number(id);
   return estados.value.find(e => e.id === key)?.nombre ?? (id != null ? `#${id}` : 'N/A');
-}
-function stockBadgeClass(it: Inventario) {
-  const low = num(it.stock_minimo);
-  return num(it.stock) <= low
-    ? 'inline-flex px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200'
-    : 'inline-flex px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200';
 }
 function currency(v?: number | string) {
   const n = num(v);
