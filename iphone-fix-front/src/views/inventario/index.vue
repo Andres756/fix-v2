@@ -35,9 +35,10 @@
               </div>
             </button>
             
-            <button 
+            <!-- Botones (línea ~35) -->
+            <button
+              @click="showEntryModal = true" 
               class="group px-6 py-3 rounded-xl border-2 border-gray-200 text-gray-700 font-medium hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              disabled
             >
               <div class="flex items-center gap-2">
                 <svg class="h-5 w-5 group-hover:rotate-12 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -345,6 +346,13 @@
 
     <!-- Modal: Nuevo inventario -->
     <NewInventarioModal :open="showNew" @close="showNew = false" @created="onCreated" />
+
+    <!-- Modal: Entrada de Stock -->
+    <InventoryEntryModal 
+      :is-open="showEntryModal" 
+      @close="showEntryModal = false"
+      @success="onEntrySuccess"
+    />
   </div>
 </template>
 
@@ -356,6 +364,7 @@ import {
   fetchEstadosInventarioOptions,
 } from '../../features/inventario/api/inventario';
 import NewInventarioModal from '../../features/inventario/components/NewInventarioModal.vue';
+import InventoryEntryModal from '../../features/inventario/components/InventoryEntryModal.vue';
 
 import type { Inventario } from '../../features/inventario/types/inventario';
 import type { PaginationMeta } from '../../shared/types/pagination';
@@ -451,6 +460,9 @@ const tipos = ref<Option[]>([]);
 const estados = ref<Option[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
+
+// ENTRADA DE STOCK
+const showEntryModal = ref(false);
 
 // UI
 const showNew = ref(false);
@@ -552,5 +564,10 @@ function clearFilters() {
 function onCreated() {
   showNew.value = false;
   reload();
+}
+
+function onEntrySuccess() {
+  showEntryModal.value = false;
+  load(); // Recargar la lista de inventario
 }
 </script>
