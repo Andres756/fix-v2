@@ -39,8 +39,10 @@ use App\Http\Controllers\Api\Inventario\ProveedoresController;
 use App\Http\Controllers\Api\Inventario\LotesController;
 use App\Http\Controllers\Api\Inventario\InventariosController;
 use App\Http\Controllers\Api\Inventario\EntradasProductoController;
+use App\Http\Controllers\Api\Inventario\SalidasProductoController;
 use App\Http\Controllers\Api\Inventario\DetallesProductoController;
 use App\Http\Controllers\Api\Inventario\DetallesRepuestoController;
+
 
 // ─────────────────────────────────────────────
 // Orden de Servicio
@@ -50,7 +52,6 @@ use App\Http\Controllers\Api\OrdenServicio\TareaEquipoController;
 use App\Http\Controllers\Api\OrdenServicio\RepuestoOsInventarioController;
 use App\Http\Controllers\Api\OrdenServicio\RepuestoOsExternoController;
 use App\Http\Controllers\Api\OrdenServicio\HistorialEstadoOsController;
-
 
 // ─────────────────────────────────────────────
 // Auth

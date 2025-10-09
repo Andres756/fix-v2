@@ -1,37 +1,40 @@
-// iphone-fix-front/src/features/inventario/api/inventoryEntries.ts
-import axios from 'axios'
-import type { CreateEntryPayload } from '../types/inventoryEntry'
+// iphone-fix-front/src/features/inventario/api/inventoryEntry.ts
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+import http from '../../../shared/api/http';
+import type { Paginated } from '../../../shared/types/pagination';
+import type { EntradaInventario, CreateEntradaInventarioPayload } from '../types/inventoryEntry';
 
 /**
- * Crea una nueva entrada de inventario
+ * Crea una nueva entrada de inventario con múltiples productos
  */
-export const createEntrada = async (payload: CreateEntryPayload) => {
-  const response = await axios.post(`${API_URL}/api/entradas`, payload)
-  return response.data
+export async function createEntradaInventario(
+  payload: CreateEntradaInventarioPayload
+): Promise<EntradaInventario> {
+  const { data } = await http.post('/inventario/entradas-producto', payload);
+  return (data?.data ?? data) as EntradaInventario;
 }
 
 /**
  * Obtiene todas las entradas de inventario
  */
-export const fetchEntradas = async () => {
-  const response = await axios.get(`${API_URL}/api/entradas`)
-  return response.data.data
+export async function fetchEntradasInventario(
+  params: { inventario_id?: number; lote_id?: number; per_page?: number } = {}
+): Promise<Paginated<EntradaInventario>> {
+  const { data } = await http.get('/inventario/entradas-producto', { params });
+  return data as Paginated<EntradaInventario>;
 }
 
 /**
  * Obtiene una entrada específica por ID
  */
-export const fetchEntrada = async (id: number) => {
-  const response = await axios.get(`${API_URL}/api/entradas/${id}`)
-  return response.data.data
+export async function fetchEntradaInventario(id: number): Promise<EntradaInventario> {
+  const { data } = await http.get(`/inventario/entradas-producto/${id}`);
+  return (data?.data ?? data) as EntradaInventario;
 }
 
 /**
  * Elimina una entrada de inventario
  */
-export const deleteEntrada = async (id: number) => {
-  const response = await axios.delete(`${API_URL}/api/entradas/${id}`)
-  return response.data
+export async function deleteEntradaInventario(id: number): Promise<void> {
+  await http.delete(`/inventario/entradas-producto/${id}`);
 }

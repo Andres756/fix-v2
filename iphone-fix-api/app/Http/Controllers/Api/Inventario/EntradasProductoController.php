@@ -1,94 +1,125 @@
 <?php
-// app/Http/Controllers/Api/Inventario/EntradasProductoController.php
 
 namespace App\Http\Controllers\Api\Inventario;
 
 use App\Http\Controllers\Controller;
 use App\Models\Inventario\EntradaProducto;
-use App\Models\Inventario\Inventario;
-use App\Http\Resources\Inventario\EntradaProductoResource;
-use App\Http\Requests\Inventario\Entradas\StoreEntradaProductoRequest;
-use App\Http\Requests\Inventario\Entradas\UpdateEntradaProductoRequest;
+use App\Models\Inventario\EntradaProductoItem;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class EntradasProductoController extends Controller
 {
-    public function index(Request $r)
+    public function index(Request $request)
     {
-        $perPage = min($r->integer('per_page', 15), 100);
-        
-        $q = EntradaProducto::with([
-            'inventario:id,nombre,codigo,stock,costo',
-            'lote:id,numero_lote',
-            'lote.proveedor:id,nombre',
-            'motivo:id,nombre'
+        $query = EntradaProducto::with(['proveedor', 'lote', 'motivoIngreso', 'items.inventario']);
+
+        if ($request->has('inventario_id')) {
+            $query->whereHas('items', function ($q) use ($request) {
+                $q->where('inventario_id', $request->inventario_id);
+            });
+        }
+
+        if ($request->has('lote_id')) {
+            $query->where('lote_id', $request->lote_id);
+        }
+
+        $perPage = $request->get('per_page', 15);
+        $entradas = $query->orderBy('fecha_entrada', 'desc')->paginate($perPage);
+
+        return response()->json($entradas);
+    }
+
+    public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'proveedor_id' => 'required|exists:proveedores,id',
+            'lote_id' => 'required|exists:lotes,id',
+            'motivo_ingreso_id' => 'required|exists:motivos_ingreso,id',
+            'fecha_entrada' => 'required|date',
+            'observaciones' => 'nullable|string',
+            'items' => 'required|array|min:1',
+            'items.*.inventario_id' => 'required|exists:inventarios,id',
+            'items.*.cantidad' => 'required|integer|min:1',
+            'items.*.costo_unitario' => 'required|numeric|min:0',
         ]);
 
-        // Filtros opcionales
-        if ($r->filled('inventario_id')) {
-            $q->where('inventario_id', $r->input('inventario_id'));
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Error de validación',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
-        if ($r->filled('lote_id')) {
-            $q->where('lote_id', $r->input('lote_id'));
+        DB::beginTransaction();
+        try {
+            // Crear la entrada principal
+            $entrada = EntradaProducto::create([
+                'proveedor_id' => $request->proveedor_id,
+                'lote_id' => $request->lote_id,
+                'motivo_ingreso_id' => $request->motivo_ingreso_id,
+                'fecha_entrada' => $request->fecha_entrada,
+                'observaciones' => $request->observaciones,
+            ]);
+
+            // Registrar cada item (el trigger se encarga del stock y movimientos)
+            foreach ($request->items as $item) {
+                EntradaProductoItem::create([
+                    'entrada_id' => $entrada->id,
+                    'inventario_id' => $item['inventario_id'],
+                    'cantidad' => $item['cantidad'],
+                    'costo_unitario' => $item['costo_unitario'],
+                ]);
+            }
+
+            DB::commit();
+
+            $entrada->load(['proveedor', 'lote', 'motivoIngreso', 'items.inventario']);
+
+            return response()->json([
+                'message' => 'Entrada de inventario registrada exitosamente',
+                'data' => $entrada
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Error al registrar la entrada',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        $q->orderBy('fecha_entrada', 'desc');
-
-        return EntradaProductoResource::collection($q->paginate($perPage));
     }
 
-    public function store(StoreEntradaProductoRequest $r)
+    public function show($id)
     {
-        // LOS TRIGGERS SE ENCARGAN DE TODO AUTOMÁTICAMENTE
-        // Solo insertamos la entrada y los triggers actualizan stock, costo y estado
-        
-        $entrada = EntradaProducto::create($r->validated());
+        $entrada = EntradaProducto::with(['proveedor', 'lote', 'motivoIngreso', 'items.inventario'])
+            ->findOrFail($id);
 
-        return (new EntradaProductoResource(
-            $entrada->load([
-                'inventario:id,nombre,codigo,stock,costo',
-                'lote:id,numero_lote',
-                'lote.proveedor:id,nombre',
-                'motivo:id,nombre'
-            ])
-        ))->response()->setStatusCode(Response::HTTP_CREATED);
+        return response()->json(['data' => $entrada]);
     }
 
-    public function show(EntradaProducto $entradas_producto)
+    public function destroy($id)
     {
-        return new EntradaProductoResource(
-            $entradas_producto->load([
-                'inventario:id,nombre,codigo,stock,costo',
-                'lote:id,numero_lote',
-                'motivo:id,nombre'
-            ])
-        );
-    }
+        DB::beginTransaction();
+        try {
+            $entrada = EntradaProducto::with('items')->findOrFail($id);
 
-    public function update(UpdateEntradaProductoRequest $r, EntradaProducto $entradas_producto)
-    {
-        // ADVERTENCIA: Actualizar entradas puede descuadrar el inventario
-        // Los triggers recalcularán todo, pero es mejor evitar ediciones
-        
-        $entradas_producto->update($r->validated());
-        
-        return new EntradaProductoResource(
-            $entradas_producto->load([
-                'inventario:id,nombre,codigo,stock,costo',
-                'lote:id,numero_lote',
-                'motivo:id,nombre'
-            ])
-        );
-    }
+            // Solo eliminamos la entrada; el trigger AFTER DELETE revertirá el stock
+            $entrada->delete();
 
-    public function destroy(EntradaProducto $entradas_producto)
-    {
-        // El trigger AFTER DELETE recalculará automáticamente stock y costo
-        $entradas_producto->delete();
-        
-        return response()->noContent();
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Entrada eliminada exitosamente'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Error al eliminar la entrada',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }
