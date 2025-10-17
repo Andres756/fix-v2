@@ -409,12 +409,22 @@ async function guardar() {
     showToast('✅ Producto creado con stock en 0. Ahora puedes registrar ingresos de inventario.', 'success');
     emit('created');
     reset();
-  } catch (e: any) {
-    const errorMessage = e?.response?.data?.message || 'No se pudo guardar el producto.';
-    error.value = errorMessage;
-    showToast(errorMessage, 'error');
-    console.error('Error al crear inventario:', e);
-  } finally {
+    } catch (e: any) {
+      // Captura errores de validación del backend
+      const res = e?.response?.data;
+      let errorMessage = 'No se pudo guardar el producto.';
+
+      if (res?.errors) {
+        const firstErrorKey = Object.keys(res.errors)[0];
+        errorMessage = res.errors[firstErrorKey][0] || errorMessage;
+      } else if (res?.message) {
+        errorMessage = res.message;
+      }
+
+      error.value = errorMessage;
+      showToast(errorMessage, 'error');
+      console.error('Error al crear inventario:', res || e);
+    } finally {
     saving.value = false;
   }
 }

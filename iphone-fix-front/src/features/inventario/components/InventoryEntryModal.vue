@@ -232,22 +232,40 @@ const calculateTotal = (): number => {
 const handleSubmit = async () => {
   isSubmitting.value = true
   try {
-    const hasInvalidItems = form.items.some(item => !item.inventario_id || item.cantidad <= 0 || item.costo_unitario < 0)
+    // ✅ VALIDAR CAMPOS OBLIGATORIOS
+    if (!form.proveedor_id) {
+      toast.warning('Debe seleccionar un proveedor')
+      return
+    }
+    
+    if (!form.motivo_ingreso_id) {
+      toast.warning('Debe seleccionar un motivo de ingreso')
+      return
+    }
+    
+    // ❌ REMOVER validación de lote_id (ya no es obligatorio)
+
+    // Validar items
+    const hasInvalidItems = form.items.some(
+      item => !item.inventario_id || item.cantidad <= 0 || item.costo_unitario < 0
+    )
+    
     if (hasInvalidItems) {
-      toast.warning('Por favor complete todos los campos')
+      toast.warning('Por favor complete todos los campos de productos correctamente')
       return
     }
 
+    // ✅ Enviar datos (lote_id puede ser null)
     await createEntradaInventario({
-      proveedor_id: Number(form.proveedor_id),  // ✅ AGREGAR
+      proveedor_id: Number(form.proveedor_id),
       motivo_ingreso_id: Number(form.motivo_ingreso_id),
-      lote_id: Number(form.lote_id),
+      lote_id: form.lote_id ? Number(form.lote_id) : null, // ✅ Permitir null
       fecha_entrada: form.fecha_entrada,
       observaciones: form.observaciones || null,
       items: form.items.map(item => ({
         inventario_id: Number(item.inventario_id),
-        cantidad: item.cantidad,
-        costo_unitario: item.costo_unitario
+        cantidad: Number(item.cantidad),
+        costo_unitario: Number(item.costo_unitario)
       }))
     })
 
@@ -257,7 +275,17 @@ const handleSubmit = async () => {
     resetForm()
   } catch (error: any) {
     console.error('Error:', error)
-    toast.error(error.response?.data?.message || 'Error al registrar')
+    
+    if (error.response?.status === 422 && error.response?.data?.errors) {
+      const firstError = Object.values(error.response.data.errors)[0]
+      if (Array.isArray(firstError) && firstError.length > 0) {
+        toast.error(firstError[0])
+      } else {
+        toast.error('Error de validación. Verifique los campos.')
+      }
+    } else {
+      toast.error(error.response?.data?.message || 'Error al registrar la entrada')
+    }
   } finally {
     isSubmitting.value = false
   }

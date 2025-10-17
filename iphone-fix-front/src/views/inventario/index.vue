@@ -568,6 +568,6 @@ function onCreated() {
 
 function onEntrySuccess() {
   showEntryModal.value = false;
-  load(); // Recargar la lista de inventario
+  reload(); // Recargar la lista de inventario
 }
 </script>

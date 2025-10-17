@@ -2,12 +2,18 @@
 
 export interface EntradaInventario {
   id: number;
+  proveedor_id: number;
   motivo_ingreso_id: number;
-  lote_id: number;
+  lote_id: number | null;
   fecha_entrada: string;
   observaciones?: string | null;
   created_at: string;
   updated_at: string;
+  
+  proveedor?: {
+    id: number;
+    nombre: string;
+  };
   
   motivo?: {
     id: number;
@@ -21,7 +27,7 @@ export interface EntradaInventario {
       id: number;
       nombre: string;
     } | null;
-  };
+  } | null;
   
   items?: EntradaInventarioItem[];
 }
@@ -41,9 +47,9 @@ export interface EntradaInventarioItem {
 }
 
 export interface CreateEntradaInventarioPayload {
-  proveedor_id: number;      // ✅ AGREGAR ESTA LÍNEA
+  proveedor_id: number;
   motivo_ingreso_id: number;
-  lote_id: number;
+  lote_id: number | null;         // ✅ Permite null
   fecha_entrada: string;
   observaciones: string | null;
   items: {

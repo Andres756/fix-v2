@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Inventario;
 use App\Http\Controllers\Controller;
 use App\Models\Inventario\EntradaProducto;
 use App\Models\Inventario\EntradaProductoItem;
+use App\Models\Inventario\Inventario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -35,7 +36,7 @@ class EntradasProductoController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'proveedor_id' => 'required|exists:proveedores,id',
-            'lote_id' => 'required|exists:lotes,id',
+            'lote_id' => 'nullable|exists:lotes,id',  // ✅ Lote opcional
             'motivo_ingreso_id' => 'required|exists:motivos_ingreso,id',
             'fecha_entrada' => 'required|date',
             'observaciones' => 'nullable|string',
@@ -54,7 +55,39 @@ class EntradasProductoController extends Controller
 
         DB::beginTransaction();
         try {
-            // Crear la entrada principal
+            foreach ($request->items as $item) {
+                $inventario = Inventario::find($item['inventario_id']);
+
+                if (!$inventario) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => "El inventario con ID {$item['inventario_id']} no existe.",
+                    ], 404);
+                }
+
+                // ✅ Regla 1: si el tipo de inventario es individual → solo una unidad
+                if ($inventario->tipo_inventario_id == 1 && $item['cantidad'] > 1) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => "El producto '{$inventario->nombre}' es un equipo individual. Solo se permite ingresar 1 unidad por entrada.",
+                    ], 422);
+                }
+
+                // ✅ Regla 2: si el inventario es individual (tipo 1) o tiene estado_inventario_id = 1 → no puede tener más de una entrada
+                $entradaExistente = DB::table('entradas_producto_items')
+                    ->join('entradas_producto', 'entradas_producto.id', '=', 'entradas_producto_items.entrada_id')
+                    ->where('entradas_producto_items.inventario_id', $inventario->id)
+                    ->exists();
+
+                if ($entradaExistente && ($inventario->tipo_inventario_id == 1 || $inventario->estado_inventario_id == 1)) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => "El producto '{$inventario->nombre}' ya tiene una entrada registrada. No se permite duplicar entradas para inventarios individuales.",
+                    ], 409);
+                }
+            }
+
+            // ✅ Crear la entrada principal
             $entrada = EntradaProducto::create([
                 'proveedor_id' => $request->proveedor_id,
                 'lote_id' => $request->lote_id,
@@ -63,7 +96,7 @@ class EntradasProductoController extends Controller
                 'observaciones' => $request->observaciones,
             ]);
 
-            // Registrar cada item (el trigger se encarga del stock y movimientos)
+            // ✅ Crear los ítems (el trigger actualiza stock y registra movimiento)
             foreach ($request->items as $item) {
                 EntradaProductoItem::create([
                     'entrada_id' => $entrada->id,
@@ -105,7 +138,20 @@ class EntradasProductoController extends Controller
         try {
             $entrada = EntradaProducto::with('items')->findOrFail($id);
 
-            // Solo eliminamos la entrada; el trigger AFTER DELETE revertirá el stock
+            // ✅ IMPORTANTE: Revertir el stock antes de eliminar
+            // Si tienes un trigger AFTER DELETE que lo hace automáticamente, 
+            // puedes omitir este foreach. Si no, descomentar:
+            
+            /*
+            foreach ($entrada->items as $item) {
+                $inventario = Inventario::find($item->inventario_id);
+                if ($inventario) {
+                    $inventario->decrement('stock', $item->cantidad);
+                }
+            }
+            */
+
+            // Eliminar la entrada (esto también eliminará los items por CASCADE)
             $entrada->delete();
 
             DB::commit();
@@ -114,6 +160,12 @@ class EntradasProductoController extends Controller
                 'message' => 'Entrada eliminada exitosamente'
             ]);
 
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Entrada no encontrada'
+            ], 404);
+            
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
