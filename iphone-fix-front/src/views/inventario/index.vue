@@ -48,17 +48,31 @@
               </div>
             </button>
             
-            <button 
-              class="group px-6 py-3 rounded-xl border-2 border-gray-200 text-gray-700 font-medium hover:border-green-300 hover:bg-green-50 hover:text-green-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-              disabled
+            <button
+              @click="openModal = true"
+              class="group px-6 py-3 rounded-xl border-2 border-gray-200 text-gray-700 font-medium 
+                    hover:border-red-300 hover:bg-red-50 hover:text-red-700 transition-all duration-200 
+                    focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
             >
               <div class="flex items-center gap-2">
-                <svg class="h-5 w-5 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                <svg
+                  class="h-5 w-5 group-hover:scale-110 transition-transform duration-200"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
                 </svg>
-                Exportar CSV
+                Exportar
               </div>
             </button>
+
+            <InventarioExportModal v-model:open="openModal" />
           </div>
         </div>
       </div>
@@ -365,10 +379,13 @@ import {
 } from '../../features/inventario/api/inventario';
 import NewInventarioModal from '../../features/inventario/components/NewInventarioModal.vue';
 import InventoryEntryModal from '../../features/inventario/components/InventoryEntryModal.vue';
+import InventarioExportModal from "../../features/inventario/components/InventarioExportModal.vue";
 
 import type { Inventario } from '../../features/inventario/types/inventario';
 import type { PaginationMeta } from '../../shared/types/pagination';
 import type { Option } from '../../shared/types/common';
+
+const openModal = ref(false);
 
 // 🎨 FUNCIONES PARA COLORES SEGÚN ESTADO_INVENTARIO_ID
 function getEstadoNombre(item: Inventario): string {

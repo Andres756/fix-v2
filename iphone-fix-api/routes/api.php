@@ -42,6 +42,7 @@ use App\Http\Controllers\Api\Inventario\EntradasProductoController;
 use App\Http\Controllers\Api\Inventario\SalidasProductoController;
 use App\Http\Controllers\Api\Inventario\DetallesProductoController;
 use App\Http\Controllers\Api\Inventario\DetallesRepuestoController;
+use App\Http\Controllers\api\Inventario\InventarioExportController;
 
 
 // ─────────────────────────────────────────────
@@ -103,24 +104,35 @@ Route::prefix('parametros')->group(function () {
 
 // ── Inventario & Compras
 Route::prefix('inventario')->group(function () {
+    // 📦 Categorías
     Route::apiResource('categorias', CategoriasController::class)
         ->parameters(['categorias' => 'categoria']);
     
+    // 🧾 Proveedores
     Route::apiResource('proveedores', ProveedoresController::class)
         ->parameters(['proveedores' => 'proveedor']);
     
+    // 📦 Lotes
     Route::apiResource('lotes', LotesController::class)
         ->parameters(['lotes' => 'lote']);
     
+    // 🏷️ Inventarios
     Route::apiResource('inventarios', InventariosController::class)
         ->parameters(['inventarios' => 'inventario']);
     
+    // 📥 Entradas de producto
     Route::apiResource('entradas-producto', EntradasProductoController::class)
         ->parameters(['entradas-producto' => 'entradas_producto']);
     
+    // 📤 Salidas de producto
     Route::apiResource('salidas-producto', SalidasProductoController::class)
         ->parameters(['salidas-producto' => 'salidas_producto']);
+    
+    // 📊 Exportar inventario a Excel
+    Route::get('exportar', [\App\Http\Controllers\Api\Inventario\InventarioExportController::class, 'exportar'])
+        ->name('inventario.exportar');
 });
+
 
 // ── Busquedad repuestos
 Route::get('inventario/repuestos/search', [InventariosController::class, 'searchRepuestos']);

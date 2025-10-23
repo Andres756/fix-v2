@@ -326,7 +326,7 @@
                             v-model.number="form.valor_estimado"
                             type="number"
                             min="0"
-                            step="1000"
+                            step="100"
                             placeholder="0"
                             class="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                           />
@@ -361,7 +361,7 @@
                           <label class="block text-sm font-semibold text-gray-700">Tipo de comisión</label>
                           <select v-model="form.tipo_comision" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" required>
                             <option value="porcentaje">Porcentaje (%)</option>
-                            <option value="fijo">Valor fijo</option>
+                            <option value="valor_fijo">Valor fijo</option>
                           </select>
                         </div>
                         <div class="space-y-2">
@@ -526,12 +526,11 @@ import type { CreateEquipoPayload, Equipo } from '../types/equipo'
 // Componentes inline
 import TareasEquipoInline from './TareasEquipoInline.vue'
 import RepuestosInventarioInline from './RepuestosInventarioInline.vue'
-import RepuestosExternosInline from './RepuestosExternosInline.vue' // ✅ Nuevo
+import RepuestosExternosInline from './RepuestosExternosInline.vue'
 
 // API técnicos
 import { fetchTecnicos } from '../api/tecnicos'
 import type { Tecnico } from '../types/tecnico'
-
 
 import EquipoCostosResumen from './EquipoCostosResumen.vue'
 
@@ -541,7 +540,6 @@ const emit = defineEmits<{ (e: 'close'): void; (e: 'created'): void; (e: 'update
 
 // ===== Estado principal =====
 const inlineEquipoId = ref<number | null>(null)
-// Ahora tenemos 3 tabs disponibles
 const inlineTab = ref<'tareas' | 'repuestos' | 'repuestosExternos'>('tareas')
 
 // Lista de equipos
@@ -555,7 +553,7 @@ const editingId = ref<number | null>(null)
 // Totales para el resumen
 const totalTareas = ref(0)
 const totalRepuestos = ref(0)
-const totalRepuestosExternos = ref(0) // ✅ Nuevo total
+const totalRepuestosExternos = ref(0)
 
 // Helpers de equipo actual
 const inlineEquipoImei = computed(() => equipos.value.find(e => e.id === inlineEquipoId.value)?.imei_serial || '')
@@ -564,7 +562,6 @@ const currentEquipoValor = computed(() => {
   const equipo = equipos.value.find(e => e.id === inlineEquipoId.value)
   return Number(equipo?.valor_estimado || 0)
 })
-// ✅ Total general ahora incluye externos
 const totalGeneral = computed(() =>
   totalTareas.value + totalRepuestos.value + totalRepuestosExternos.value + currentEquipoValor.value
 )
@@ -606,13 +603,14 @@ async function loadEquipos() {
     isLoading.value = false
   }
 }
+
 watch(() => [props.open, props.clienteId, props.ordenId], ([open]) => {
   if (open) {
     inlineEquipoId.value = null
     inlineTab.value = 'tareas'
     totalTareas.value = 0
     totalRepuestos.value = 0
-    totalRepuestosExternos.value = 0 // ✅ reiniciamos
+    totalRepuestosExternos.value = 0
     loadEquipos()
     showForm.value = false
   }
@@ -643,7 +641,7 @@ function openRepuestos(eq: EquipoItem) {
   showForm.value = false
 }
 
-function openRepuestosExternos(eq: EquipoItem) { // ✅ Nuevo
+function openRepuestosExternos(eq: EquipoItem) {
   inlineEquipoId.value = eq.id
   inlineTab.value = 'repuestosExternos'
   totalTareas.value = 0
@@ -682,18 +680,20 @@ function handleRepuestosChanged() {
   emit('updated') 
   triggerRefresh()
 }
+
 function handleRepuestosExternosChanged() { 
   emit('updated') 
   triggerRefresh()
 }
+
 function handleTareasChanged() {
   emit('updated')
   triggerRefresh()
 }
 
-
 // ===== Guardar equipo =====
 async function guardar() {
+  // Validar comisión
   if (!form.value.comision_habilitada) {
     form.value.tipo_comision = null
     form.value.valor_comision = null
@@ -707,19 +707,28 @@ async function guardar() {
 
   try {
     isSaving.value = true
+    
     if (editingId.value) {
+      // Actualizar equipo existente
       await updateEquipo(props.clienteId, props.ordenId, editingId.value, form.value)
       toast.success('¡Equipo actualizado exitosamente! 🎉')
       emit('updated')
       await loadEquipos()
       cancelForm()
     } else {
+      // Crear nuevo equipo
       const nuevo = await createEquipo(props.clienteId, props.ordenId, form.value)
-      if (!nuevo?.id) throw new Error('Respuesta inesperada')
+      
+      if (!nuevo?.id) {
+        throw new Error('Respuesta inesperada del servidor')
+      }
+      
       toast.success('¡Equipo agregado exitosamente! 🎉')
       emit('created')
       await loadEquipos()
       cancelForm()
+      
+      // Abrir tareas para el nuevo equipo
       inlineEquipoId.value = nuevo.id
       inlineTab.value = 'tareas'
       totalTareas.value = 0
@@ -727,8 +736,30 @@ async function guardar() {
       totalRepuestosExternos.value = 0
     }
   } catch (err: any) {
-    toast.error(err?.response?.data?.message || 'No se pudo guardar el equipo.')
-  } finally { isSaving.value = false }
+    console.error('Error al guardar equipo:', err)
+    
+    // Manejo de errores mejorado
+    let errorMessage = 'No se pudo guardar el equipo'
+    
+    // Error capturado desde la función API (ya formateado)
+    if (err.message) {
+      errorMessage = err.message
+    }
+    // Error directo del backend
+    else if (err?.response?.data?.message) {
+      errorMessage = err.response.data.message
+    }
+    // Errores de validación de Laravel
+    else if (err?.response?.data?.errors) {
+      const errors = err.response.data.errors
+      const firstError = Object.values(errors)[0]
+      errorMessage = Array.isArray(firstError) ? firstError[0] : 'Error de validación'
+    }
+    
+    toast.error(errorMessage, { autoClose: 5000 })
+  } finally {
+    isSaving.value = false
+  }
 }
 
 // ===== Utils =====

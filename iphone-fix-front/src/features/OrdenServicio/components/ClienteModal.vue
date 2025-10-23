@@ -62,9 +62,20 @@
                       required
                       type="text"
                       placeholder="Juan Pérez González"
-                      class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      maxlength="100"
+                      @input="validarNombre"
+                      :class="[
+                        'w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 transition-colors',
+                        errors.nombre ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
+                      ]"
                     />
                   </div>
+                  <p v-if="errors.nombre" class="text-sm text-red-600 flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                    {{ errors.nombre }}
+                  </p>
                 </div>
 
                 <!-- Documento -->
@@ -83,9 +94,20 @@
                       required
                       type="text"
                       placeholder="1234567890"
-                      class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      maxlength="20"
+                      @input="validarDocumento"
+                      :class="[
+                        'w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 transition-colors',
+                        errors.documento ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
+                      ]"
                     />
                   </div>
+                  <p v-if="errors.documento" class="text-sm text-red-600 flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                    {{ errors.documento }}
+                  </p>
                 </div>
 
                 <!-- Teléfono -->
@@ -103,10 +125,21 @@
                       v-model="form.telefono"
                       required
                       type="tel"
-                      placeholder="300 123 4567"
-                      class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="3001234567"
+                      maxlength="15"
+                      @input="validarTelefono"
+                      :class="[
+                        'w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 transition-colors',
+                        errors.telefono ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
+                      ]"
                     />
                   </div>
+                  <p v-if="errors.telefono" class="text-sm text-red-600 flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                    {{ errors.telefono }}
+                  </p>
                 </div>
 
                 <!-- Correo -->
@@ -125,9 +158,20 @@
                       required
                       type="email"
                       placeholder="juan.perez@email.com"
-                      class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      maxlength="100"
+                      @input="validarCorreo"
+                      :class="[
+                        'w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 transition-colors',
+                        errors.correo ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
+                      ]"
                     />
                   </div>
+                  <p v-if="errors.correo" class="text-sm text-red-600 flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                    {{ errors.correo }}
+                  </p>
                 </div>
 
                 <!-- Dirección -->
@@ -147,9 +191,20 @@
                       required
                       type="text"
                       placeholder="Calle 123 #45-67, Bogotá"
-                      class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      maxlength="200"
+                      @input="validarDireccion"
+                      :class="[
+                        'w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 transition-colors',
+                        errors.direccion ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
+                      ]"
                     />
                   </div>
+                  <p v-if="errors.direccion" class="text-sm text-red-600 flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                    {{ errors.direccion }}
+                  </p>
                 </div>
               </div>
 
@@ -164,12 +219,22 @@
                 </button>
                 <button
                   type="submit"
-                  class="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2"
+                  :disabled="!isFormValid || isSubmitting"
+                  :class="[
+                    'px-6 py-2.5 rounded-lg transition-colors font-medium flex items-center gap-2',
+                    isFormValid && !isSubmitting
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  ]"
                 >
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg v-if="!isSubmitting" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                   </svg>
-                  Crear Cliente
+                  <svg v-else class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  {{ isSubmitting ? 'Guardando...' : 'Crear Cliente' }}
                 </button>
               </div>
             </form>
@@ -181,7 +246,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { createCliente, type CreateClientePayload } from '../api/clientes'
 import { toast } from 'vue3-toastify'
 import 'vue3-toastify/dist/index.css'
@@ -197,7 +262,153 @@ const form = ref<CreateClientePayload>({
   direccion: '',
 })
 
+const errors = ref({
+  nombre: '',
+  documento: '',
+  telefono: '',
+  correo: '',
+  direccion: '',
+})
+
+const isSubmitting = ref(false)
+
+// Validaciones individuales
+function validarNombre() {
+  const valor = form.value.nombre.trim()
+  
+  if (!valor) {
+    errors.value.nombre = ''
+    return
+  }
+  
+  if (valor.length < 3) {
+    errors.value.nombre = 'El nombre debe tener al menos 3 caracteres'
+    return
+  }
+  
+  if (!/^[a-záéíóúñA-ZÁÉÍÓÚÑ\s]+$/.test(valor)) {
+    errors.value.nombre = 'Solo se permiten letras y espacios'
+    return
+  }
+  
+  errors.value.nombre = ''
+}
+
+function validarDocumento() {
+  const valor = form.value.documento.trim()
+  
+  if (!valor) {
+    errors.value.documento = ''
+    return
+  }
+  
+  if (!/^[0-9]+$/.test(valor)) {
+    errors.value.documento = 'Solo se permiten números'
+    return
+  }
+  
+  if (valor.length < 6) {
+    errors.value.documento = 'El documento debe tener al menos 6 dígitos'
+    return
+  }
+  
+  errors.value.documento = ''
+}
+
+function validarTelefono() {
+  const valor = form.value.telefono.trim()
+  
+  if (!valor) {
+    errors.value.telefono = ''
+    return
+  }
+  
+  // Eliminar espacios y guiones para validar
+  const telefonoLimpio = valor.replace(/[\s-]/g, '')
+  
+  if (!/^[0-9]+$/.test(telefonoLimpio)) {
+    errors.value.telefono = 'Solo se permiten números, espacios y guiones'
+    return
+  }
+  
+  if (telefonoLimpio.length < 7) {
+    errors.value.telefono = 'El teléfono debe tener al menos 10 dígitos'
+    return
+  }
+  
+  if (telefonoLimpio.length > 15) {
+    errors.value.telefono = 'El teléfono no puede tener más de 15 dígitos'
+    return
+  }
+  
+  errors.value.telefono = ''
+}
+
+function validarCorreo() {
+  const valor = form.value.correo.trim()
+  
+  if (!valor) {
+    errors.value.correo = ''
+    return
+  }
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  
+  if (!emailRegex.test(valor)) {
+    errors.value.correo = 'Ingresa un correo electrónico válido'
+    return
+  }
+  
+  errors.value.correo = ''
+}
+
+function validarDireccion() {
+  const valor = form.value.direccion.trim()
+  
+  if (!valor) {
+    errors.value.direccion = ''
+    return
+  }
+  
+  if (valor.length < 5) {
+    errors.value.direccion = 'La dirección debe tener al menos 5 caracteres'
+    return
+  }
+  
+  errors.value.direccion = ''
+}
+
+// Computed para verificar si el formulario es válido
+const isFormValid = computed(() => {
+  return (
+    form.value.nombre.trim().length >= 3 &&
+    form.value.documento.trim().length >= 6 &&
+    form.value.telefono.trim().length >= 10 &&
+    form.value.correo.trim().length > 0 &&
+    form.value.direccion.trim().length >= 5 &&
+    !errors.value.nombre &&
+    !errors.value.documento &&
+    !errors.value.telefono &&
+    !errors.value.correo &&
+    !errors.value.direccion
+  )
+})
+
 async function guardar() {
+  // Validar todo antes de enviar
+  validarNombre()
+  validarDocumento()
+  validarTelefono()
+  validarCorreo()
+  validarDireccion()
+  
+  if (!isFormValid.value) {
+    toast.error('Por favor corrige los errores en el formulario')
+    return
+  }
+  
+  isSubmitting.value = true
+  
   try {
     const nuevo = await createCliente(form.value)
     emit('created', nuevo)
@@ -211,10 +422,20 @@ async function guardar() {
       direccion: '',
     }
     
+    errors.value = {
+      nombre: '',
+      documento: '',
+      telefono: '',
+      correo: '',
+      direccion: '',
+    }
+    
     toast.success('¡Cliente creado exitosamente! 🎉', { autoClose: 3000 })
   } catch (error: any) {
     const msg = error?.response?.data?.message || 'No se pudo crear el cliente'
     toast.error(msg, { autoClose: 3000 })
+  } finally {
+    isSubmitting.value = false
   }
 }
 </script>

@@ -59,8 +59,8 @@ class RepuestoOsInventarioController extends Controller
             // Crear el repuesto
             $repuesto = $this->createRepuesto($equipo, $request, $inventario);
 
-            // Descontar del inventario
-            $inventario->decrement('stock', $request->cantidad);
+            // ✅ NO descontar manualmente - el trigger lo hace
+            // ELIMINADO: $inventario->decrement('stock', $request->cantidad);
 
             // Refrescar el modelo para obtener el costo_total calculado por MySQL
             $repuesto->refresh();
@@ -95,7 +95,20 @@ class RepuestoOsInventarioController extends Controller
 
             // Si se está cambiando la cantidad
             if ($request->has('cantidad') && $request->cantidad != $cantidadOriginal) {
-                $this->updateCantidad($repuesto, $inventario, $request->cantidad, $cantidadOriginal);
+                // ✅ Validar stock ANTES de actualizar
+                $diferencia = $request->cantidad - $cantidadOriginal;
+                
+                if ($diferencia > 0 && $diferencia > $inventario->stock) {
+                    DB::rollBack();
+                    return $this->errorResponse(
+                        'Stock insuficiente',
+                        "Solo quedan {$inventario->stock} unidades disponibles para incrementar.",
+                        400
+                    );
+                }
+                
+                // Actualizar solo la cantidad - el trigger maneja el stock
+                $repuesto->cantidad = $request->cantidad;
             }
 
             // Actualizar otros campos
@@ -123,12 +136,21 @@ class RepuestoOsInventarioController extends Controller
         try {
             DB::beginTransaction();
 
+            // Trae el repuesto validado
             $repuesto = $this->findRepuesto($clienteId, $ordenId, $equipoId, $repuestoId, false);
 
-            // Devolver la cantidad al inventario
-            $repuesto->inventario->increment('stock', $repuesto->cantidad);
+            // Bloquea el inventario para evitar carreras
+            $inventario = $repuesto->inventario()->lockForUpdate()->firstOrFail();
 
+            // Guarda la cantidad ANTES de eliminar
+            $cantidadADevolver = $repuesto->cantidad;
+
+            // Elimina el repuesto
             $repuesto->delete();
+
+            // Devuelve stock con increment a nivel de query
+            \App\Models\Inventario\Inventario::where('id', $inventario->id)
+                ->increment('stock', $cantidadADevolver);
 
             DB::commit();
 
@@ -183,34 +205,6 @@ class RepuestoOsInventarioController extends Controller
             'fecha_uso' => now(),
             'observaciones' => $request->observaciones,
         ]);
-    }
-
-    /**
-     * Actualizar cantidad y manejar stock
-     */
-    private function updateCantidad(RepuestoOsInventario $repuesto, Inventario $inventario, int $nuevaCantidad, int $cantidadOriginal): void
-    {
-        $diferencia = $nuevaCantidad - $cantidadOriginal;
-        
-        // Si necesita más cantidad, verificar stock ANTES de descontar
-        if ($diferencia > 0) {
-            // Verificar que hay suficiente stock disponible
-            if ($diferencia > $inventario->stock) {
-                throw new \Exception("Stock insuficiente. Solo quedan {$inventario->stock} unidades disponibles para incrementar.");
-            }
-            
-            // Descontar la diferencia del stock
-            $inventario->decrement('stock', $diferencia);
-            
-        } elseif ($diferencia < 0) {
-            // Si reduce la cantidad, devolver stock al inventario
-            $cantidadADevolver = abs($diferencia);
-            $inventario->increment('stock', $cantidadADevolver);
-        }
-        // Si $diferencia == 0, no hacer nada con el stock
-
-        // Actualizar solo la cantidad - costo_total se recalcula automáticamente
-        $repuesto->cantidad = $nuevaCantidad;
     }
 
     /**

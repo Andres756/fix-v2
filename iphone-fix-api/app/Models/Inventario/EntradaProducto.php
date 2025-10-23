@@ -37,7 +37,7 @@ class EntradaProducto extends Model
 
     public function motivoIngreso()
     {
-        return $this->belongsTo(MotivoIngreso::class, 'motivo_ingreso_id');
+        return $this->belongsTo(MotivoMovimiento::class, 'motivo_ingreso_id');
     }
 
     public function items()

@@ -34,10 +34,11 @@ class EntradasProductoController extends Controller
 
     public function store(Request $request)
     {
+        // 🔹 Validación principal
         $validator = Validator::make($request->all(), [
             'proveedor_id' => 'required|exists:proveedores,id',
             'lote_id' => 'nullable|exists:lotes,id',  // ✅ Lote opcional
-            'motivo_ingreso_id' => 'required|exists:motivos_ingreso,id',
+            'motivo_ingreso_id' => ['required', 'integer', 'exists:motivos_movimientos,id'],
             'fecha_entrada' => 'required|date',
             'observaciones' => 'nullable|string',
             'items' => 'required|array|min:1',
@@ -50,6 +51,18 @@ class EntradasProductoController extends Controller
             return response()->json([
                 'message' => 'Error de validación',
                 'errors' => $validator->errors()
+            ], 422);
+        }
+
+        // 🔹 Validar que el motivo sea realmente de tipo 'entrada'
+        $motivo = DB::table('motivos_movimientos')
+            ->where('id', $request->motivo_ingreso_id)
+            ->where('tipo', 'entrada')
+            ->first();
+
+        if (!$motivo) {
+            return response()->json([
+                'message' => 'El motivo seleccionado no corresponde a una entrada de inventario.',
             ], 422);
         }
 
@@ -73,17 +86,18 @@ class EntradasProductoController extends Controller
                     ], 422);
                 }
 
-                // ✅ Regla 2: si el inventario es individual (tipo 1) o tiene estado_inventario_id = 1 → no puede tener más de una entrada
-                $entradaExistente = DB::table('entradas_producto_items')
-                    ->join('entradas_producto', 'entradas_producto.id', '=', 'entradas_producto_items.entrada_id')
-                    ->where('entradas_producto_items.inventario_id', $inventario->id)
-                    ->exists();
+                // ✅ Regla 2: evitar duplicar equipos individuales activos
+                if ($inventario->tipo_inventario_id == 1 && $inventario->estado_inventario_id == 1) {
+                    $entradaExistente = DB::table('entradas_producto_items')
+                        ->where('inventario_id', $inventario->id)
+                        ->exists();
 
-                if ($entradaExistente && ($inventario->tipo_inventario_id == 1 || $inventario->estado_inventario_id == 1)) {
-                    DB::rollBack();
-                    return response()->json([
-                        'message' => "El producto '{$inventario->nombre}' ya tiene una entrada registrada. No se permite duplicar entradas para inventarios individuales.",
-                    ], 409);
+                    if ($entradaExistente) {
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => "El producto '{$inventario->nombre}' ya tiene una entrada registrada y es individual/activo. No se permite duplicar entradas.",
+                        ], 409);
+                    }
                 }
             }
 
@@ -96,7 +110,7 @@ class EntradasProductoController extends Controller
                 'observaciones' => $request->observaciones,
             ]);
 
-            // ✅ Crear los ítems (el trigger actualiza stock y registra movimiento)
+            // ✅ Crear los ítems asociados
             foreach ($request->items as $item) {
                 EntradaProductoItem::create([
                     'entrada_id' => $entrada->id,
@@ -108,6 +122,7 @@ class EntradasProductoController extends Controller
 
             DB::commit();
 
+            // Cargar relaciones actualizadas
             $entrada->load(['proveedor', 'lote', 'motivoIngreso', 'items.inventario']);
 
             return response()->json([

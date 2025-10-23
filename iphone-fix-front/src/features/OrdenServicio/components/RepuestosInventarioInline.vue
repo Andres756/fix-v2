@@ -120,7 +120,7 @@ async function buscarInventario() {
     const { data } = await http.get('/inventario/repuestos/search', { 
       params: { q: search.value } 
     })
-    resultados.value = data
+    resultados.value = data.data || []  // ✅ aquí está el cambio clave
   } catch (e) {
     console.error(e)
     resultados.value = []
