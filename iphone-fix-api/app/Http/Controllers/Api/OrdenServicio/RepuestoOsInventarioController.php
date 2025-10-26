@@ -148,10 +148,6 @@ class RepuestoOsInventarioController extends Controller
             // Elimina el repuesto
             $repuesto->delete();
 
-            // Devuelve stock con increment a nivel de query
-            \App\Models\Inventario\Inventario::where('id', $inventario->id)
-                ->increment('stock', $cantidadADevolver);
-
             DB::commit();
 
             return response()->json([

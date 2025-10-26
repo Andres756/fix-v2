@@ -5,20 +5,19 @@ namespace App\Models\PlanSepare;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
-use App\Models\Parametros\FormaPago;
 
-class AbonoPlanSepare extends Model
+class LogPlanSepare extends Model
 {
     use HasFactory;
 
-    protected $table = 'abonos_plan_separe';
+    protected $table = 'plan_separe_log';
+    public $timestamps = false;
 
     protected $fillable = [
         'plan_separe_id',
-        'valor',
-        'forma_pago_id',
-        'usuario_id',
-        'observaciones'
+        'accion',
+        'descripcion',
+        'usuario_id'
     ];
 
     public function plan()
@@ -29,10 +28,5 @@ class AbonoPlanSepare extends Model
     public function usuario()
     {
         return $this->belongsTo(User::class, 'usuario_id');
-    }
-
-    public function formaPago()
-    {
-        return $this->belongsTo(FormaPago::class, 'forma_pago_id');
     }
 }

@@ -44,6 +44,11 @@ use App\Http\Controllers\Api\Inventario\DetallesProductoController;
 use App\Http\Controllers\Api\Inventario\DetallesRepuestoController;
 use App\Http\Controllers\api\Inventario\InventarioExportController;
 
+// ─────────────────────────────────────────────
+// Plan Separe
+use App\Http\Controllers\Api\PlanSepare\PlanSepareController;
+use App\Http\Controllers\Api\PlanSepare\AbonoController;
+use App\Http\Controllers\Api\PlanSepare\EstadoController;
 
 // ─────────────────────────────────────────────
 // Orden de Servicio
@@ -131,6 +136,25 @@ Route::prefix('inventario')->group(function () {
     // 📊 Exportar inventario a Excel
     Route::get('exportar', [\App\Http\Controllers\Api\Inventario\InventarioExportController::class, 'exportar'])
         ->name('inventario.exportar');
+});
+
+
+Route::prefix('plan-separe')->group(function () {
+    // 🧾 Planes principales
+    Route::get('/', [PlanSepareController::class, 'index']);
+    Route::post('/', [PlanSepareController::class, 'store']);
+    Route::get('{id}', [PlanSepareController::class, 'show']);
+
+    // 💰 Abonos
+    Route::get('{id}/abonos', [AbonoController::class, 'index']);
+    Route::post('{id}/abono', [AbonoController::class, 'store']);
+
+    // 🔄 Cambios de estado y devoluciones
+    Route::patch('{id}/estado', [EstadoController::class, 'update']);
+
+    // 💸 Devoluciones parciales (REST completo)
+    Route::get('{id}/devoluciones', [DevolucionController::class, 'index']);
+    Route::post('{id}/devoluciones', [DevolucionController::class, 'store']);
 });
 
 

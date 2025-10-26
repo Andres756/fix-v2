@@ -2,20 +2,36 @@
 
 namespace App\Models\Parametros;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class FormaPago extends Model
 {
+    use HasFactory;
+
     protected $table = 'formas_pago';
     public $timestamps = false;
 
-    protected $fillable = ['nombre', 'activo'];
-
-    protected $casts = [
-        'activo' => 'boolean',
+    protected $fillable = [
+        'nombre',
+        'codigo',
+        'activo'
     ];
 
-    // Scopes útiles
-    public function scopeActivas($q)    { return $q->where('activo', 1); }
-    public function scopeBuscar($q,$s)  { return $s ? $q->where('nombre','like',"%{$s}%") : $q; }
+    // --- Relaciones ---
+
+    public function abonosPlanSepare()
+    {
+        return $this->hasMany(\App\Models\PlanSepare\AbonoPlanSepare::class, 'forma_pago_id');
+    }
+
+    public function facturas()
+    {
+        return $this->hasMany(\App\Models\Facturacion\Factura::class, 'forma_pago_id');
+    }
+
+    public function pagosFacturas()
+    {
+        return $this->hasMany(\App\Models\Facturacion\PagoFactura::class, 'forma_pago_id');
+    }
 }
