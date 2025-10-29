@@ -54,9 +54,13 @@ class TiposVentaController extends Controller
         return response()->noContent();
     }
 
-    public function options(Request $request)
+    public function options()
     {
-        $soloActivos = filter_var($request->query('solo_activos', 'true'), FILTER_VALIDATE_BOOLEAN);
-        return response()->json($this->service->options($soloActivos));
+        $data = \App\Models\Parametros\TipoVenta::select('id', 'nombre')
+            ->orderBy('nombre')
+            ->get();
+
+        return response()->json($data);
     }
+
 }

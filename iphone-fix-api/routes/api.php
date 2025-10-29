@@ -51,6 +51,10 @@ use App\Http\Controllers\Api\PlanSepare\AbonoController;
 use App\Http\Controllers\Api\PlanSepare\EstadoController;
 
 // ─────────────────────────────────────────────
+// Facturacion
+use App\Http\Controllers\Api\Facturacion\{FacturacionController,PagosFacturaController};
+
+// ─────────────────────────────────────────────
 // Orden de Servicio
 use App\Http\Controllers\Api\OrdenServicio\OrdenServicioController;
 use App\Http\Controllers\Api\OrdenServicio\EquipoOrdenServicioController;
@@ -138,7 +142,7 @@ Route::prefix('inventario')->group(function () {
         ->name('inventario.exportar');
 });
 
-
+// ── Plan Separe
 Route::prefix('plan-separe')->group(function () {
     // 🧾 Planes principales
     Route::get('/', [PlanSepareController::class, 'index']);
@@ -157,6 +161,19 @@ Route::prefix('plan-separe')->group(function () {
     Route::post('{id}/devoluciones', [DevolucionController::class, 'store']);
 });
 
+// ── FACTURACION
+Route::prefix('facturacion')->middleware(['auth:sanctum'])->group(function () {
+
+    // 📊 Facturas
+    Route::get('facturas', [FacturacionController::class, 'index']);              // Listar facturas (vista resumen)
+    Route::get('facturas/{id}', [FacturacionController::class, 'show']);          // Mostrar una factura con detalle
+    Route::post('facturas', [FacturacionController::class, 'store']);             // Crear nueva factura (venta o servicio)
+    Route::patch('facturas/{id}/anular', [FacturacionController::class, 'anular']); // Anular factura
+
+    // 💰 Pagos asociados a factura
+    Route::get('facturas/{id}/pagos', [PagosFacturaController::class, 'index']);  // Listar pagos de factura
+    Route::post('facturas/{id}/pagos', [PagosFacturaController::class, 'store']); // Registrar pago o abono
+});
 
 // ── Busquedad repuestos
 Route::get('inventario/repuestos/search', [InventariosController::class, 'searchRepuestos']);

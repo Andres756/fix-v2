@@ -57,9 +57,13 @@ class FormasPagoController extends Controller
     }
 
     // Para combos/selects
-    public function options(Request $request)
+    public function options()
     {
-        $soloActivas = filter_var($request->query('solo_activas', 'true'), FILTER_VALIDATE_BOOLEAN);
-        return response()->json($this->service->options($soloActivas));
+        $data = \App\Models\Parametros\FormaPago::select('id', 'nombre')
+            ->where('activo', 1) // o 'activo', según tu campo
+            ->orderBy('nombre')
+            ->get();
+
+        return response()->json($data);
     }
 }

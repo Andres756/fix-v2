@@ -2,20 +2,27 @@
 
 namespace App\Models\Parametros;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Facturacion\Factura;
 
 class TipoVenta extends Model
 {
+    use HasFactory;
+
     protected $table = 'tipos_venta';
     public $timestamps = false;
 
-    protected $fillable = ['nombre', 'activo'];
-
-    protected $casts = [
-        'activo' => 'boolean',
+    protected $fillable = [
+        'codigo',
+        'nombre',
+        'descripcion'
     ];
 
-    // nombre es VARCHAR(20) en BD → validaremos eso en Requests
-    public function scopeActivos($q)   { return $q->where('activo', 1); }
-    public function scopeBuscar($q,$s) { return $s ? $q->where('nombre','like',"%{$s}%") : $q; }
+    // --- Relaciones ---
+
+    public function facturas()
+    {
+        return $this->hasMany(Factura::class, 'tipo_venta_id');
+    }
 }

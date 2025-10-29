@@ -24,6 +24,14 @@ class FacturaDetalle extends Model
         'total'
     ];
 
+    protected $casts = [
+        'cantidad' => 'integer',
+        'valor_unitario' => 'float',
+        'descuento' => 'float',
+        'impuesto' => 'float',
+        'total' => 'float',
+    ];
+
     // --- Relaciones ---
 
     public function factura()

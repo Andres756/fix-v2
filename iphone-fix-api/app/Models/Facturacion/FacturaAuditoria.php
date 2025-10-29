@@ -17,8 +17,10 @@ class FacturaAuditoria extends Model
         'factura_id',
         'usuario_id',
         'accion',
-        'detalle'
+        'detalle',
+        'created_at'
     ];
+
 
     public function factura()
     {

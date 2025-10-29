@@ -5,8 +5,12 @@ namespace App\Models\Facturacion;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Parametros\FormaPago;
+use App\Models\Parametros\TipoVenta;
+use App\Models\Facturacion\EstadoFactura;
 use App\Models\User;
-use App\Models\Ventas\Cliente;
+use App\Models\Cliente;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Carbon\Carbon;
 
 class Factura extends Model
 {
@@ -31,6 +35,16 @@ class Factura extends Model
         'consecutivo'
     ];
 
+    protected $casts = [
+        'subtotal' => 'float',
+        'impuestos' => 'float',
+        'descuentos' => 'float',
+        'total' => 'float',
+        'fecha_emision' => 'datetime',
+    ];
+
+    protected $appends = ['total_pagado', 'saldo_pendiente'];
+
     // --- Relaciones ---
 
     public function cliente()
@@ -46,6 +60,11 @@ class Factura extends Model
     public function formaPago()
     {
         return $this->belongsTo(FormaPago::class, 'forma_pago_id');
+    }
+
+    public function tipoVenta()
+    {
+        return $this->belongsTo(TipoVenta::class, 'tipo_venta_id');
     }
 
     public function estado()
@@ -68,7 +87,8 @@ class Factura extends Model
         return $this->hasMany(FacturaAuditoria::class, 'factura_id');
     }
 
-    // --- Accesor ---
+    // --- Accesores ---
+
     public function getTotalPagadoAttribute()
     {
         return $this->pagos()->sum('valor');
@@ -76,6 +96,13 @@ class Factura extends Model
 
     public function getSaldoPendienteAttribute()
     {
-        return $this->total - $this->getTotalPagadoAttribute();
+        return max(0, $this->total - $this->getTotalPagadoAttribute());
+    }
+
+    protected function fechaEmision(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($value) => $value ? Carbon::parse($value)->format('Y-m-d H:i:s') : null
+        );
     }
 }
