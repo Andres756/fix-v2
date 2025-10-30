@@ -32,7 +32,8 @@ class Factura extends Model
         'observaciones',
         'fecha_emision',
         'prefijo',
-        'consecutivo'
+        'consecutivo',
+        'entregado'
     ];
 
     protected $casts = [
@@ -41,6 +42,7 @@ class Factura extends Model
         'descuentos' => 'float',
         'total' => 'float',
         'fecha_emision' => 'datetime',
+        'entregado' => 'boolean',  
     ];
 
     protected $appends = ['total_pagado', 'saldo_pendiente'];

@@ -21,7 +21,8 @@ class FacturaDetalle extends Model
         'valor_unitario',
         'descuento',
         'impuesto',
-        'total'
+        'total',
+        'entregado'
     ];
 
     protected $casts = [
@@ -30,6 +31,7 @@ class FacturaDetalle extends Model
         'descuento' => 'float',
         'impuesto' => 'float',
         'total' => 'float',
+        'entregado' => 'boolean'
     ];
 
     // --- Relaciones ---

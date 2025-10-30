@@ -169,6 +169,7 @@ Route::prefix('facturacion')->middleware(['auth:sanctum'])->group(function () {
     Route::get('facturas/{id}', [FacturacionController::class, 'show']);          // Mostrar una factura con detalle
     Route::post('facturas', [FacturacionController::class, 'store']);             // Crear nueva factura (venta o servicio)
     Route::patch('facturas/{id}/anular', [FacturacionController::class, 'anular']); // Anular factura
+    Route::patch('facturas/{id}/entregar', [FacturacionController::class, 'entregar']);
 
     // 💰 Pagos asociados a factura
     Route::get('facturas/{id}/pagos', [PagosFacturaController::class, 'index']);  // Listar pagos de factura
