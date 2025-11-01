@@ -12,10 +12,45 @@ use Illuminate\Validation\ValidationException;
 
 class PagosFacturaController extends Controller
 {
+
+    /**
+     * 📋 Listar pagos de una factura
+     */
+    public function index(int $facturaId)
+    {
+        $factura = Factura::with(['pagos.formaPago', 'estado'])->find($facturaId);
+
+        if (!$factura) {
+            return response()->json([
+                'message' => 'Factura no encontrada.'
+            ], 404);
+        }
+
+        return response()->json([
+            'factura_id' => $factura->id,
+            'codigo' => $factura->codigo,
+            'estado' => $factura->estado?->codigo ?? 'DESCONOCIDO',
+            'total' => $factura->total ?? 0,
+            'total_pagado' => $factura->total_pagado ?? $factura->pagos->sum('valor'),
+            'saldo_pendiente' => $factura->saldo_pendiente ?? max(0, ($factura->total ?? 0) - $factura->pagos->sum('valor')),
+            'pagos' => $factura->pagos->map(function ($pago) {
+                return [
+                    'id' => $pago->id,
+                    'forma_pago' => $pago->formaPago->nombre ?? null,
+                    'valor' => $pago->valor,
+                    'referencia_externa' => $pago->referencia_externa,
+                    'observaciones' => $pago->observaciones,
+                    'fecha' => $pago->created_at?->format('Y-m-d H:i:s'),
+                    'usuario_id' => $pago->usuario_id,
+                ];
+            }),
+        ]);
+    }
+
     /**
      * 💳 Registrar uno o varios pagos a una factura existente.
      */
-    public function store(Request $request, int $facturaId)
+    public function store(int $facturaId, Request $request)
     {
         $request->validate([
             'pagos' => 'required|array|min:1',

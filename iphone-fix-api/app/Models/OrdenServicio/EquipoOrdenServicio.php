@@ -27,7 +27,10 @@ class EquipoOrdenServicio extends Model
         'valor_comision',
         'estado',
         'observaciones',
-        'fecha_finalizacion',
+        'fecha_finalizacion',        // pendiente | en_proceso | finalizado | cancelado
+        'facturado',       // tinyint
+        'entregado',       // tinyint
+        'factura_id'      // nullable
     ];
 
     protected $casts = [
@@ -36,6 +39,8 @@ class EquipoOrdenServicio extends Model
         'comision_habilitada'     => 'boolean',
         'fecha_estimada_entrega'  => 'date',
         'fecha_finalizacion'      => 'datetime',
+        'facturado'               => 'boolean',
+        'entregado'               => 'boolean',
     ];
 
     // Relaciones

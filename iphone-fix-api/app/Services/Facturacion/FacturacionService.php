@@ -159,79 +159,116 @@ class FacturacionService
     /**
      * Crear factura desde una Orden de Servicio cerrada/finalizada
      */
-    public function crearFacturaServicio(int $ordenId, int $clienteId, ?int $formaPagoId, int $usuarioId, ?string $observaciones = null): Factura
-    {
-        $os = OrdenServicio::with(['equipos.tareas'])->findOrFail($ordenId);
-        if (!in_array($os->estado, ['finalizada', 'cerrada'])) {
-            throw ValidationException::withMessages(['orden_servicio' => 'La OS debe estar finalizada o cerrada para facturar.']);
+    public function crearFacturaServicio(
+        int $ordenId,
+        ?int $clienteId = null,
+        ?int $formaPagoId,
+        int $usuarioId,
+        ?string $observaciones = null,
+        ?array $equiposSeleccionados = null,
+        bool $entregado = true
+    ): Factura {
+        $os = \App\Models\OrdenServicio\OrdenServicio::with([
+            'equipos.tareas',
+            'equipos.repuestosInventario',
+            'equipos.repuestosExternos'
+        ])->findOrFail($ordenId);
+
+        $clienteId = $os->cliente_id;
+
+        $equipos = $os->equipos->filter(function ($eq) {
+            return $eq->estado === 'finalizado' && (int)$eq->facturado === 0;
+        });
+
+        if (!empty($equiposSeleccionados)) {
+            $equipos = $equipos->whereIn('id', $equiposSeleccionados);
         }
 
-        $equipos = $os->equipos;
         if ($equipos->isEmpty()) {
-            throw ValidationException::withMessages(['orden_servicio' => 'No hay equipos asociados a la OS.']);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'equipos' => 'No hay equipos finalizados pendientes por facturar.'
+            ]);
         }
 
-        $items = [];
+        // LOG: qué equipos encontró y cuántas relaciones carga
+        \Log::info('Equipos cargados para prefacturar', [
+            'equipos' => $equipos->map(fn ($e) => [
+                'id' => $e->id,
+                'estado' => $e->estado,
+                'facturado' => $e->facturado,
+                'tareas_count' => $e->tareas->count(),
+                'rep_inv_count' => $e->repuestosInventario->count(),
+                'rep_ext_count' => $e->repuestosExternos->count(),
+            ])
+        ]);
+
+        $tipoSrv   = \App\Models\Parametros\TipoVenta::where('codigo', self::COD_SRV)->firstOrFail();
+        $estadoPend= \App\Models\Facturacion\EstadoFactura::where('codigo', self::EST_PEND)->firstOrFail();
+
+        $factura = \App\Models\Facturacion\Factura::create([
+            'orden_servicio_id' => $ordenId,
+            'cliente_id'        => $clienteId,
+            'usuario_id'        => $usuarioId,
+            'tipo_venta_id'     => $tipoSrv->id,
+            'forma_pago_id'     => $formaPagoId,
+            'estado_id'         => $estadoPend->id,
+            'subtotal'          => 0,
+            'impuestos'         => 0,
+            'descuentos'        => 0,
+            'total'             => 0,
+            'observaciones'     => $observaciones,
+            'es_prefactura'     => 0,
+            'fecha_emision'     => now(),
+            'entregado'         => $entregado ? 1 : 0,
+        ]);
+
+        $subtotal = 0;
+
         foreach ($equipos as $eq) {
             $manoObra = (float)$eq->tareas->sum('costo_aplicado');
-            $repuestos = (float) DB::table('repuestos_os_inventario')
-                ->where('equipo_os_id', $eq->id)
-                ->sum(DB::raw('cantidad * costo_unitario_aplicado'));
+            $valorRepInv = (float)$eq->repuestosInventario->sum(fn($r) => $r->cantidad * $r->costo_unitario_aplicado);
+            $valorRepExt = (float)$eq->repuestosExternos->sum('costo_total');
 
-            $valor = $manoObra + $repuestos;
-            if ($valor <= 0) continue;
-
-            $items[] = [
-                'equipo_os_id' => $eq->id,
-                'descripcion'  => "Servicio técnico - Equipo {$eq->imei_serial}",
-                'cantidad'     => 1,
-                'valor'        => $valor,
-            ];
-        }
-
-        if (empty($items)) {
-            throw ValidationException::withMessages(['orden_servicio' => 'No hay valores facturables (mano de obra o repuestos).']);
-        }
-
-        return DB::transaction(function () use ($clienteId, $usuarioId, $formaPagoId, $observaciones, $items) {
-            $tipoSrv = TipoVenta::where('codigo', self::COD_SRV)->firstOrFail();
-            $estadoPend = EstadoFactura::where('codigo', self::EST_PEND)->firstOrFail();
-
-            $factura = Factura::create([
-                'cliente_id'   => $clienteId,
-                'usuario_id'   => $usuarioId,
-                'tipo_venta_id'=> $tipoSrv->id,
-                'forma_pago_id'=> $formaPagoId,
-                'estado_id'    => $estadoPend->id,
-                'subtotal'     => 0,
-                'total'        => 0,
-                'observaciones'=> $observaciones,
+            \Log::info('Valores calculados por equipo', [
+                'equipo_id' => $eq->id,
+                'mano_obra' => $manoObra,
+                'repuestos_inventario' => $valorRepInv,
+                'repuestos_externos' => $valorRepExt,
             ]);
 
-            $subtotal = 0;
-            foreach ($items as $it) {
-                FacturaDetalle::create([
-                    'factura_id'     => $factura->id,
-                    'tipo_item'      => self::TIPO_ITEM_OS_EQUIPO,
-                    'referencia_id'  => $it['equipo_os_id'],
-                    'descripcion'    => $it['descripcion'],
-                    'cantidad'       => 1,
-                    'valor_unitario' => $it['valor'],
-                    'descuento'      => 0,
-                    'impuesto'       => 0,
-                    'total'          => $it['valor'],
-                ]);
-                $subtotal += $it['valor'];
-            }
+            $valorTotalEquipo = $manoObra + $valorRepInv + $valorRepExt;
+            if ($valorTotalEquipo <= 0) continue;
 
-            $factura->update([
-                'subtotal' => $subtotal,
-                'total'    => $subtotal,
+            \App\Models\Facturacion\FacturaDetalle::create([
+                'factura_id'     => $factura->id,
+                'tipo_item'      => self::TIPO_ITEM_OS_EQUIPO,
+                'referencia_id'  => $eq->id,
+                'descripcion'    => "Servicio técnico - Equipo {$eq->imei_serial}",
+                'cantidad'       => 1,
+                'valor_unitario' => $valorTotalEquipo,
+                'total'          => $valorTotalEquipo,
+                'entregado'      => $entregado ? 1 : 0,
             ]);
 
-            return $factura->fresh(['cliente', 'detalles']);
-        });
+            $subtotal += $valorTotalEquipo;
+            $eq->update(['facturado' => 1, 'entregado' => $entregado ? 1 : 0]);
+        }
+
+        if ($subtotal <= 0) {
+            $factura->delete();
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'orden_servicio' => 'No hay valores facturables en los equipos seleccionados.'
+            ]);
+        }
+
+        $factura->update([
+            'subtotal' => $subtotal,
+            'total'    => $subtotal,
+        ]);
+
+        return $factura->fresh(['cliente', 'detalles', 'estado']);
     }
+
 
     /**
      * Registrar pago o abono a factura (actualiza estado por trigger)
@@ -273,12 +310,17 @@ class FacturacionService
 
         $estadoAnulada = EstadoFactura::where('codigo', self::EST_ANUL)->firstOrFail();
 
-        DB::transaction(function () use ($factura, $estadoAnulada) {
-            $factura->update(['estado_id' => $estadoAnulada->id]);
-            // Trigger se encarga del resto: stock, movimientos, auditoría
+        DB::transaction(function () use ($factura, $estadoAnulada, $usuarioId) {
+            // Solo actualiza el estado
+            $factura->update([
+                'estado_id' => $estadoAnulada->id,
+                'updated_at' => now(),
+            ]);
+
+            // El trigger se encargará de stock + auditoría
         });
 
-        return $factura->fresh();
+        return $factura->fresh(['estado']);
     }
 
     /**

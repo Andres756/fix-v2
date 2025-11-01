@@ -33,7 +33,9 @@ class Factura extends Model
         'fecha_emision',
         'prefijo',
         'consecutivo',
-        'entregado'
+        'entregado',
+        'orden_servicio_id',
+        'es_prefactura'
     ];
 
     protected $casts = [
@@ -42,7 +44,8 @@ class Factura extends Model
         'descuentos' => 'float',
         'total' => 'float',
         'fecha_emision' => 'datetime',
-        'entregado' => 'boolean',  
+        'entregado' => 'boolean',
+        'es_prefactura' => 'boolean',
     ];
 
     protected $appends = ['total_pagado', 'saldo_pendiente'];

@@ -157,8 +157,8 @@ Route::prefix('plan-separe')->group(function () {
     Route::patch('{id}/estado', [EstadoController::class, 'update']);
 
     // 💸 Devoluciones parciales (REST completo)
-    Route::get('{id}/devoluciones', [DevolucionController::class, 'index']);
-    Route::post('{id}/devoluciones', [DevolucionController::class, 'store']);
+    // ── Route::get('{id}/devoluciones', [DevolucionController::class, 'index']);
+    // ── Route::post('{id}/devoluciones', [DevolucionController::class, 'store']);
 });
 
 // ── FACTURACION
@@ -174,6 +174,8 @@ Route::prefix('facturacion')->middleware(['auth:sanctum'])->group(function () {
     // 💰 Pagos asociados a factura
     Route::get('facturas/{id}/pagos', [PagosFacturaController::class, 'index']);  // Listar pagos de factura
     Route::post('facturas/{id}/pagos', [PagosFacturaController::class, 'store']); // Registrar pago o abono
+
+    Route::post('ordenes/{orden}/prefacturar', [FacturacionController::class, 'prefacturarOS']);
 });
 
 // ── Busquedad repuestos

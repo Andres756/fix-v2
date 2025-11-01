@@ -30,36 +30,35 @@ class FacturacionController extends Controller
         $facturas = $this->facturacionService->listarResumen($filters);
         return response()->json($facturas);
     }
-
     /**
      * 🧾 Crear nueva factura (venta directa, servicio o plan separe)
-     * 
-     * Permite registrar factura, pagos y calcular vueltas.
+     * Endpoint principal POST /api/facturacion/facturas
      */
     public function store(Request $request)
     {
-        // ✅ Reglas condicionales por origen
         $request->validate([
             'origen' => 'required|string|in:venta,servicio,plan_separe',
+            'cliente_id' => 'required|integer|exists:clientes,id',
+            'forma_pago_id' => 'nullable|integer|exists:formas_pago,id',
+            'observaciones' => 'nullable|string|max:255',
+            'monto_recibido' => 'nullable|numeric|min:0',
 
-            // Venta directa: exige items
+            // Ítems (solo si origen = venta)
             'items' => 'required_if:origen,venta|array|min:1',
             'items.*.inventario_id' => 'required_if:origen,venta|integer|exists:inventarios,id',
             'items.*.cantidad' => 'required_if:origen,venta|numeric|min:1',
             'items.*.tipo_precio' => 'nullable|string|in:DET,MAY',
 
-            // Servicio: NO exige items; sí exige OS
+            // Orden de servicio (solo si origen = servicio)
             'orden_servicio_id' => 'required_if:origen,servicio|integer|exists:ordenes_servicio,id',
 
-            // Comunes
-            'cliente_id' => 'required|integer|exists:clientes,id',
-            'forma_pago_id' => 'nullable|integer|exists:formas_pago,id',
-            'monto_recibido' => 'nullable|numeric|min:0',
+            // Control de entrega
+            'entregado' => 'nullable|boolean',
+
+            // Pagos
             'pagos' => 'nullable|array',
             'pagos.*.forma_pago_id' => 'required_with:pagos|integer|exists:formas_pago,id',
             'pagos.*.valor' => 'required_with:pagos|numeric|min:0.01',
-            'entregado' => 'nullable|boolean',
-            'observaciones' => 'nullable|string|max:255',
         ]);
 
         try {
@@ -71,26 +70,26 @@ class FacturacionController extends Controller
             }
 
             $origen = $request->input('origen');
+            $entregado = $request->boolean('entregado', true);
 
             if ($origen === 'venta') {
                 $resultado = $this->facturacionService->crearFacturaVenta($request->all(), $usuarioId);
-
             } elseif ($origen === 'servicio') {
                 $resultado = $this->facturacionService->crearFacturaServicio(
                     (int)$request->input('orden_servicio_id'),
-                    (int)$request->input('cliente_id'),
+                    null,
                     $request->input('forma_pago_id'),
                     $usuarioId,
-                    $request->input('observaciones')
+                    $request->input('observaciones'),
+                    null,
+                    $entregado
                 );
-
-            } else { // plan_separe
+            } elseif ($origen === 'plan_separe') {
                 throw ValidationException::withMessages([
                     'origen' => 'Las facturas de plan separe se crean automáticamente al cierre del plan.'
                 ]);
             }
 
-            // $resultado puede ser Modelo (Eloquent) o array
             $factura = $resultado instanceof \Illuminate\Database\Eloquent\Model
                 ? $resultado
                 : ($resultado['factura'] ?? $resultado);
@@ -107,6 +106,145 @@ class FacturacionController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    public function crearFacturaServicio(
+        int $ordenId,
+        ?int $clienteId = null,
+        ?int $formaPagoId,
+        int $usuarioId,
+        ?string $observaciones = null,
+        ?array $equiposSeleccionados = null,
+        bool $entregado = true
+    ): Factura {
+        $os = \App\Models\OrdenServicio\OrdenServicio::with([
+            'equipos.tareas',
+            'equipos.repuestosInventario.inventario',
+            'equipos.repuestosExternos'
+        ])->findOrFail($ordenId);
+
+        $clienteId = $os->cliente_id;
+
+        $equipos = $os->equipos->filter(function ($eq) {
+            return $eq->estado === 'finalizado' && (int)$eq->facturado === 0;
+        });
+
+        if (!empty($equiposSeleccionados)) {
+            $equipos = $equipos->whereIn('id', $equiposSeleccionados);
+        }
+
+        if ($equipos->isEmpty()) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'equipos' => 'No hay equipos finalizados pendientes por facturar.'
+            ]);
+        }
+
+        $tipoSrv   = \App\Models\Parametros\TipoVenta::where('codigo', self::COD_SRV)->firstOrFail();
+        $estadoPend= \App\Models\Facturacion\EstadoFactura::where('codigo', self::EST_PEND)->firstOrFail();
+
+        $factura = \App\Models\Facturacion\Factura::create([
+            'orden_servicio_id' => $ordenId,
+            'cliente_id'        => $clienteId,
+            'usuario_id'        => $usuarioId,
+            'tipo_venta_id'     => $tipoSrv->id,
+            'forma_pago_id'     => $formaPagoId,
+            'estado_id'         => $estadoPend->id,
+            'subtotal'          => 0,
+            'impuestos'         => 0,
+            'descuentos'        => 0,
+            'total'             => 0,
+            'observaciones'     => $observaciones,
+            'es_prefactura'     => 0,
+            'fecha_emision'     => now(),
+            'entregado'         => $entregado ? 1 : 0,
+        ]);
+
+        $subtotal = 0;
+
+        foreach ($equipos as $eq) {
+            $manoObra = (float)$eq->tareas->sum('costo_aplicado');
+            $valorRepInv = (float)$eq->repuestosInventario->sum(fn($r) => $r->cantidad * $r->costo_unitario_aplicado);
+            $valorRepExt = (float)$eq->repuestosExternos->sum('costo');
+
+            $valorTotalEquipo = $manoObra + $valorRepInv + $valorRepExt;
+            if ($valorTotalEquipo <= 0) continue;
+
+            \App\Models\Facturacion\FacturaDetalle::create([
+                'factura_id'     => $factura->id,
+                'tipo_item'      => self::TIPO_ITEM_OS_EQUIPO,
+                'referencia_id'  => $eq->id,
+                'descripcion'    => "Servicio técnico - Equipo {$eq->imei_serial}",
+                'cantidad'       => 1,
+                'valor_unitario' => $valorTotalEquipo,
+                'descuento'      => 0,
+                'impuesto'       => 0,
+                'total'          => $valorTotalEquipo,
+                'entregado'      => $entregado ? 1 : 0,
+            ]);
+
+            $subtotal += $valorTotalEquipo;
+
+            $eq->update([
+                'facturado' => 1,
+                'entregado' => $entregado ? 1 : 0,
+            ]);
+
+            \App\Models\Facturacion\FacturaAuditoria::create([
+                'factura_id' => $factura->id,
+                'usuario_id' => $usuarioId,
+                'accion'     => 'CREAR',
+                'detalle'    => "Equipo ID {$eq->id} facturado. Entregado: " . ($entregado ? 'Sí' : 'No'),
+                'created_at' => now(),
+            ]);
+        }
+
+        if ($subtotal <= 0) {
+            $factura->delete();
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'orden_servicio' => 'No hay valores facturables en los equipos seleccionados.'
+            ]);
+        }
+
+        $factura->update([
+            'subtotal' => $subtotal,
+            'total'    => $subtotal,
+        ]);
+
+        $param = \App\Models\Parametros\ParametroFacturacion::first();
+        if ($param) {
+            $nuevoConsec = $param->consecutivo_actual + 1;
+            $codigo = "{$param->prefijo}-" . date('Y') . "-" . str_pad($nuevoConsec, 5, '0', STR_PAD_LEFT);
+            $factura->update([
+                'codigo'      => $codigo,
+                'prefijo'     => $param->prefijo,
+                'consecutivo' => $nuevoConsec,
+            ]);
+            $param->update(['consecutivo_actual' => $nuevoConsec]);
+        }
+
+        \App\Models\Facturacion\FacturaAuditoria::create([
+            'factura_id' => $factura->id,
+            'usuario_id' => $usuarioId,
+            'accion'     => 'CREAR',
+            'detalle'    => 'Factura creada por orden de servicio. Entregado: ' . ($entregado ? 'Sí' : 'No'),
+            'created_at' => now(),
+        ]);
+
+        // ✅ Cerrar OS si todos los equipos ya están facturados
+        $equiposPendientes = $os->equipos()->where('facturado', 0)->count();
+        if ($equiposPendientes === 0) {
+            $os->update(['estado' => 'cerrada']);
+
+            \App\Models\Facturacion\FacturaAuditoria::create([
+                'factura_id' => $factura->id,
+                'usuario_id' => $usuarioId,
+                'accion'     => 'EDITAR',
+                'detalle'    => 'Orden de servicio cerrada automáticamente (todos los equipos facturados)',
+                'created_at' => now(),
+            ]);
+        }
+
+        return $factura->fresh(['cliente', 'detalles', 'estado']);
     }
 
     /**
@@ -255,6 +393,55 @@ class FacturacionController extends Controller
             return response()->json([
                 'message' => 'Error al registrar entrega',
                 'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     *  Prefactura
+     */
+    public function prefacturarOS(Request $request, int $orden)
+    {
+        $request->validate([
+            'equipos'        => 'nullable|array',
+            'equipos.*'      => 'integer',
+            'forma_pago_id'  => 'nullable|integer|exists:formas_pago,id',
+            'observaciones'  => 'nullable|string|max:255',
+            'entregado'      => 'nullable|boolean',
+        ]);
+
+        try {
+            $usuarioId = Auth::id() ?? $request->input('usuario_id');
+            if (!$usuarioId) {
+                throw ValidationException::withMessages([
+                    'usuario' => 'No se pudo identificar el usuario que realiza la operación.'
+                ]);
+            }
+
+            // Si no viene el campo, por defecto entregado = true
+            $entregado = $request->boolean('entregado', true);
+
+            $factura = $this->facturacionService->crearFacturaServicio(
+                $orden,
+                null, // cliente viene de la OS
+                $request->input('forma_pago_id'),
+                $usuarioId,
+                $request->input('observaciones'),
+                $request->input('equipos', null),
+                $entregado
+            );
+
+            return response()->json([
+                'message' => $entregado
+                    ? 'Factura generada y equipos marcados como entregados.'
+                    : 'Factura generada. Equipos pendientes por entrega.',
+                'factura' => $factura,
+            ], 201);
+
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Error al generar la factura de servicio',
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
