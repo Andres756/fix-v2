@@ -69,12 +69,13 @@ class EquipoOrdenServicio extends Model
         );
     }
 
-        // Relación con repuestos externos desde inventario
-        public function repuestosExternos()
+    // Relación con repuestos externos desde inventario
+    public function repuestosExternos()
     {
         return $this->hasMany(
             \App\Models\OrdenServicio\RepuestoOsExterno::class,
-            'equipo_os_id'
+            'equipo_os_id',
+            'id'
         );
     }
 }

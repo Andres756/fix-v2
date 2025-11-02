@@ -167,21 +167,22 @@ class FacturacionService
         ?string $observaciones = null,
         ?array $equiposSeleccionados = null,
         bool $entregado = true
-    ): Factura {
+    ): \App\Models\Facturacion\Factura {
         $os = \App\Models\OrdenServicio\OrdenServicio::with([
             'equipos.tareas',
-            'equipos.repuestosInventario',
+            'equipos.repuestosInventario.inventario',
             'equipos.repuestosExternos'
         ])->findOrFail($ordenId);
 
         $clienteId = $os->cliente_id;
 
+        // Equipos pendientes por facturar
         $equipos = $os->equipos->filter(function ($eq) {
-            return $eq->estado === 'finalizado' && (int)$eq->facturado === 0;
+            return strtolower(trim($eq->estado)) === 'finalizado' && (int)$eq->facturado === 0;
         });
 
         if (!empty($equiposSeleccionados)) {
-            $equipos = $equipos->whereIn('id', $equiposSeleccionados);
+            $equipos = $equipos->filter(fn($eq) => in_array($eq->id, $equiposSeleccionados));
         }
 
         if ($equipos->isEmpty()) {
@@ -190,53 +191,56 @@ class FacturacionService
             ]);
         }
 
-        // LOG: qué equipos encontró y cuántas relaciones carga
-        \Log::info('Equipos cargados para prefacturar', [
-            'equipos' => $equipos->map(fn ($e) => [
-                'id' => $e->id,
-                'estado' => $e->estado,
-                'facturado' => $e->facturado,
-                'tareas_count' => $e->tareas->count(),
-                'rep_inv_count' => $e->repuestosInventario->count(),
-                'rep_ext_count' => $e->repuestosExternos->count(),
-            ])
-        ]);
-
         $tipoSrv   = \App\Models\Parametros\TipoVenta::where('codigo', self::COD_SRV)->firstOrFail();
         $estadoPend= \App\Models\Facturacion\EstadoFactura::where('codigo', self::EST_PEND)->firstOrFail();
 
-        $factura = \App\Models\Facturacion\Factura::create([
-            'orden_servicio_id' => $ordenId,
-            'cliente_id'        => $clienteId,
-            'usuario_id'        => $usuarioId,
-            'tipo_venta_id'     => $tipoSrv->id,
-            'forma_pago_id'     => $formaPagoId,
-            'estado_id'         => $estadoPend->id,
-            'subtotal'          => 0,
-            'impuestos'         => 0,
-            'descuentos'        => 0,
-            'total'             => 0,
-            'observaciones'     => $observaciones,
-            'es_prefactura'     => 0,
-            'fecha_emision'     => now(),
-            'entregado'         => $entregado ? 1 : 0,
-        ]);
+        // 🔎 Buscar si ya existe una factura pendiente para esta orden
+        $factura = \App\Models\Facturacion\Factura::where('orden_servicio_id', $ordenId)
+            ->where('estado_id', $estadoPend->id)
+            ->first();
 
         $subtotal = 0;
 
+        if (!$factura) {
+            // 🆕 Crear nueva factura si no existe
+            $factura = \App\Models\Facturacion\Factura::create([
+                'orden_servicio_id' => $ordenId,
+                'cliente_id'        => $clienteId,
+                'usuario_id'        => $usuarioId,
+                'tipo_venta_id'     => $tipoSrv->id,
+                'forma_pago_id'     => $formaPagoId,
+                'estado_id'         => $estadoPend->id,
+                'subtotal'          => 0,
+                'impuestos'         => 0,
+                'descuentos'        => 0,
+                'total'             => 0,
+                'observaciones'     => $observaciones,
+                'es_prefactura'     => 0,
+                'fecha_emision'     => now(),
+                'entregado'         => $entregado ? 1 : 0,
+            ]);
+
+            // 🔢 Generar código y consecutivo SOLO en la creación
+            $param = \App\Models\Parametros\ParametroFacturacion::first();
+            if ($param) {
+                $nuevoConsec = $param->consecutivo_actual + 1;
+                $codigo = "{$param->prefijo}-" . date('Y') . "-" . str_pad($nuevoConsec, 5, '0', STR_PAD_LEFT);
+                $factura->update([
+                    'codigo'      => $codigo,
+                    'prefijo'     => $param->prefijo,
+                    'consecutivo' => $nuevoConsec,
+                ]);
+                $param->update(['consecutivo_actual' => $nuevoConsec]);
+            }
+        }
+
+        // 🧾 Agregar o sumar detalles de equipos nuevos
         foreach ($equipos as $eq) {
             $manoObra = (float)$eq->tareas->sum('costo_aplicado');
             $valorRepInv = (float)$eq->repuestosInventario->sum(fn($r) => $r->cantidad * $r->costo_unitario_aplicado);
             $valorRepExt = (float)$eq->repuestosExternos->sum('costo_total');
-
-            \Log::info('Valores calculados por equipo', [
-                'equipo_id' => $eq->id,
-                'mano_obra' => $manoObra,
-                'repuestos_inventario' => $valorRepInv,
-                'repuestos_externos' => $valorRepExt,
-            ]);
-
             $valorTotalEquipo = $manoObra + $valorRepInv + $valorRepExt;
+
             if ($valorTotalEquipo <= 0) continue;
 
             \App\Models\Facturacion\FacturaDetalle::create([
@@ -251,19 +255,27 @@ class FacturacionService
             ]);
 
             $subtotal += $valorTotalEquipo;
-            $eq->update(['facturado' => 1, 'entregado' => $entregado ? 1 : 0]);
-        }
 
-        if ($subtotal <= 0) {
-            $factura->delete();
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'orden_servicio' => 'No hay valores facturables en los equipos seleccionados.'
+            // Actualizar equipo
+            $eq->update([
+                'facturado' => 1,
+                'entregado' => $entregado ? 1 : 0,
             ]);
         }
 
+        // 🧮 Recalcular totales acumulados
         $factura->update([
-            'subtotal' => $subtotal,
-            'total'    => $subtotal,
+            'subtotal' => $factura->subtotal + $subtotal,
+            'total'    => $factura->total + $subtotal,
+        ]);
+
+        // Auditoría
+        \App\Models\Facturacion\FacturaAuditoria::create([
+            'factura_id' => $factura->id,
+            'usuario_id' => $usuarioId,
+            'accion'     => 'EDITAR',
+            'detalle'    => 'Se agregaron equipos a la factura existente (orden de servicio).',
+            'created_at' => now(),
         ]);
 
         return $factura->fresh(['cliente', 'detalles', 'estado']);

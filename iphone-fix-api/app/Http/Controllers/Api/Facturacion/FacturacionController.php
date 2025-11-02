@@ -271,14 +271,53 @@ class FacturacionController extends Controller
      */
     public function anular($id)
     {
+        DB::beginTransaction();
         try {
             $usuarioId = Auth::id();
-            $factura = $this->facturacionService->anularFactura($id, $usuarioId);
+            $factura = Factura::with('detalles', 'estado')->findOrFail($id);
+
+            if ($factura->estado?->codigo === 'ANUL') {
+                return response()->json(['message' => 'La factura ya está anulada.'], 422);
+            }
+
+            $estadoAnul = \App\Models\Facturacion\EstadoFactura::where('codigo', 'ANUL')->firstOrFail();
+
+            // Cambiar estado
+            $factura->update(['estado_id' => $estadoAnul->id, 'entregado' => 0]);
+
+            // Revertir entregas de detalles
+            FacturaDetalle::where('factura_id', $factura->id)->update(['entregado' => 0]);
+
+            // Revertir equipos si aplica
+            if ($factura->orden_servicio_id) {
+                $equiposIds = FacturaDetalle::where('factura_id', $factura->id)
+                    ->where('tipo_item', 'orden_servicio_equipo')
+                    ->pluck('referencia_id')
+                    ->unique()
+                    ->toArray();
+
+                if (!empty($equiposIds)) {
+                    \App\Models\OrdenServicio\EquipoOrdenServicio::whereIn('id', $equiposIds)
+                        ->update(['entregado' => 0, 'facturado' => 0]);
+                }
+            }
+
+            // Auditoría
+            FacturaAuditoria::create([
+                'factura_id' => $factura->id,
+                'usuario_id' => $usuarioId,
+                'accion'     => 'ANULAR',
+                'detalle'    => 'Factura anulada. Triggers manejarán reversas de inventario.',
+                'created_at' => now(),
+            ]);
+
+            DB::commit();
             return response()->json([
-                'message' => 'Factura anulada correctamente',
-                'factura' => $factura
+                'message' => 'Factura anulada correctamente.',
+                'factura' => $factura->fresh(['estado']),
             ]);
         } catch (\Throwable $e) {
+            DB::rollBack();
             return response()->json([
                 'message' => 'Error al anular la factura',
                 'error' => $e->getMessage(),
@@ -294,62 +333,30 @@ class FacturacionController extends Controller
         $request->validate([
             'entregas' => 'nullable|array',
             'entregas.*.detalle_id' => 'required_with:entregas|integer|exists:factura_detalle,id',
-            'forzar' => 'nullable|boolean',
         ]);
 
-        $usuario = Auth::user();
-        $usuarioId = $usuario->id ?? $request->input('usuario_id');
-
+        $usuarioId = Auth::id() ?? $request->input('usuario_id');
         $factura = Factura::with(['detalles', 'estado'])->findOrFail($id);
-        $estado = $factura->estado?->codigo;
 
-        // 🚫 No permitir entregas de facturas anuladas
-        if ($estado === 'ANUL') {
+        // 🚫 No permitir entregas en facturas anuladas
+        if ($factura->estado?->codigo === 'ANUL') {
             return response()->json(['message' => 'No se puede entregar una factura anulada.'], 422);
         }
-
-        $pagado = $factura->total_pagado >= $factura->total;
-
-        // ⚠️ Antes: Si no estaba pagada, solo un admin podía forzar.
-        // 🔹 AHORA: Permitimos entregas siempre (sin validar rol)
-        /*
-        if (!$pagado) {
-            $forzar = $request->boolean('forzar', false);
-
-            if (!$forzar) {
-                return response()->json([
-                    'message' => 'La factura no está completamente pagada. Solo un administrador puede autorizar la entrega parcial.',
-                    'requiere_confirmacion' => true
-                ], 403);
-            }
-
-            if ($usuario->role !== 'admin') {
-                throw ValidationException::withMessages([
-                    'autorizacion' => 'Solo un usuario administrador puede entregar una factura no pagada.'
-                ]);
-            }
-        }
-        */
 
         DB::beginTransaction();
         try {
             $entregas = $request->input('entregas', []);
             $entregados = [];
 
-            // 🧩 Entrega parcial (solo ítems seleccionados)
+            // Si se especifican ítems
             if (!empty($entregas)) {
-                foreach ($entregas as $ent) {
-                    $detalle = FacturaDetalle::where('id', $ent['detalle_id'])
-                        ->where('factura_id', $factura->id)
-                        ->firstOrFail();
-
-                    if (!$detalle->entregado) {
-                        $detalle->update(['entregado' => 1]);
-                        $entregados[] = $detalle->id;
-                    }
-                }
+                $ids = collect($entregas)->pluck('detalle_id')->toArray();
+                FacturaDetalle::whereIn('id', $ids)
+                    ->where('factura_id', $factura->id)
+                    ->update(['entregado' => 1]);
+                $entregados = $ids;
             } else {
-                // 🧩 Entregar todos los pendientes
+                // Entrega total
                 FacturaDetalle::where('factura_id', $factura->id)
                     ->where('entregado', 0)
                     ->update(['entregado' => 1]);
@@ -357,26 +364,25 @@ class FacturacionController extends Controller
                 $entregados = $factura->detalles->where('entregado', 0)->pluck('id')->toArray();
             }
 
-            // 🧮 Si todos los detalles están entregados, marcar factura completa
+            // Si todos los detalles están entregados, marcar factura completa
             $faltantes = FacturaDetalle::where('factura_id', $factura->id)
                 ->where('entregado', 0)
                 ->count();
 
-            if ($faltantes === 0) {
-                $factura->update(['entregado' => 1]);
-            }
+            $factura->update(['entregado' => $faltantes === 0 ? 1 : 0]);
 
-            // 🧾 Registrar auditoría
+            // Auditoría
             FacturaAuditoria::create([
                 'factura_id' => $factura->id,
                 'usuario_id' => $usuarioId,
-                'accion' => 'EDITAR',
-                'detalle' => empty($entregas)
+                'accion'     => 'EDITAR',
+                'detalle'    => empty($entregas)
                     ? 'Factura entregada completamente.'
-                    : sprintf('Entrega parcial de %d productos (IDs: %s).',
+                    : sprintf('Entrega parcial de %d ítems (%s).',
                         count($entregados),
                         implode(',', $entregados)
                     ),
+                'created_at' => now(),
             ]);
 
             DB::commit();
@@ -384,14 +390,99 @@ class FacturacionController extends Controller
             return response()->json([
                 'message' => 'Entrega registrada correctamente.',
                 'factura_id' => $factura->id,
-                'entregados' => $entregados,
-                'entrega_total' => $faltantes === 0
+                'entrega_total' => $faltantes === 0,
             ]);
-
         } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json([
                 'message' => 'Error al registrar entrega',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+
+    /**
+     * 🛠️ Entregar equipos asociados a una factura de orden de servicio
+     */
+    public function entregarEquipos(Request $request, int $id)
+    {
+        $request->validate([
+            'entregas' => 'nullable|array',
+            'entregas.*.detalle_id' => 'required_with:entregas|integer|exists:factura_detalle,id',
+        ]);
+
+        $usuarioId = Auth::id() ?? $request->input('usuario_id');
+        $factura = Factura::with(['detalles', 'estado'])->findOrFail($id);
+
+        if ($factura->estado?->codigo === 'ANUL') {
+            return response()->json(['message' => 'No se puede entregar una factura anulada.'], 422);
+        }
+
+        if (!$factura->orden_servicio_id) {
+            return response()->json(['message' => 'Esta factura no pertenece a una orden de servicio.'], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            $entregas = $request->input('entregas', []);
+            $entregados = [];
+
+            if (!empty($entregas)) {
+                $ids = collect($entregas)->pluck('detalle_id')->toArray();
+                FacturaDetalle::whereIn('id', $ids)
+                    ->where('factura_id', $factura->id)
+                    ->update(['entregado' => 1]);
+                $entregados = $ids;
+            } else {
+                FacturaDetalle::where('factura_id', $factura->id)
+                    ->where('entregado', 0)
+                    ->update(['entregado' => 1]);
+
+                $entregados = $factura->detalles->where('entregado', 0)->pluck('id')->toArray();
+            }
+
+            // Actualizar equipos asociados
+            $equiposIds = FacturaDetalle::where('factura_id', $factura->id)
+                ->whereNotNull('referencia_id')
+                ->where('tipo_item', 'orden_servicio_equipo')
+                ->pluck('referencia_id')
+                ->unique()
+                ->toArray();
+
+            if (!empty($equiposIds)) {
+                \App\Models\OrdenServicio\EquipoOrdenServicio::whereIn('id', $equiposIds)
+                    ->update(['entregado' => 1]);
+            }
+
+            // Marcar factura completa si todos entregados
+            $faltantes = FacturaDetalle::where('factura_id', $factura->id)
+                ->where('entregado', 0)
+                ->count();
+
+            $factura->update(['entregado' => $faltantes === 0 ? 1 : 0]);
+
+            FacturaAuditoria::create([
+                'factura_id' => $factura->id,
+                'usuario_id' => $usuarioId,
+                'accion'     => 'EDITAR',
+                'detalle'    => empty($entregas)
+                    ? 'Equipos entregados completamente.'
+                    : sprintf('Entrega parcial de equipos (%s).', implode(',', $entregados)),
+                'created_at' => now(),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Entrega de equipos registrada correctamente.',
+                'factura_id' => $factura->id,
+                'entrega_total' => $faltantes === 0,
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Error al entregar equipos',
                 'error' => $e->getMessage(),
             ], 500);
         }
