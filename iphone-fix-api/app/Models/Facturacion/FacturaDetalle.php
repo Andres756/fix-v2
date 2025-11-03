@@ -22,7 +22,8 @@ class FacturaDetalle extends Model
         'descuento',
         'impuesto',
         'total',
-        'entregado'
+        'entregado',
+        'estado_id'
     ];
 
     protected $casts = [
@@ -31,7 +32,8 @@ class FacturaDetalle extends Model
         'descuento' => 'float',
         'impuesto' => 'float',
         'total' => 'float',
-        'entregado' => 'boolean'
+        'entregado' => 'boolean',
+        'estado_id'
     ];
 
     // --- Relaciones ---
@@ -39,5 +41,11 @@ class FacturaDetalle extends Model
     public function factura()
     {
         return $this->belongsTo(Factura::class, 'factura_id');
+    }
+
+        public function estado()
+    {
+        // Relación al catálogo de estados (estados_factura)
+        return $this->belongsTo(EstadoFactura::class, 'estado_id');
     }
 }

@@ -19,6 +19,7 @@ use App\Models\OrdenServicio\OrdenServicio;
 use App\Models\PlanSepare\PlanSepare;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use App\Services\Facturacion\AnulacionFacturaService;
 
 class FacturacionService
 {
@@ -45,6 +46,8 @@ class FacturacionService
             // ⚙️ Determinar si la venta fue entregada al cliente
             $entregado = isset($payload['entregado']) ? (bool)$payload['entregado'] : true;
 
+            $estadoPend = \App\Models\Facturacion\EstadoFactura::where('codigo', 'PEND')->firstOrFail();
+
             // 🧾 Crear factura base
             $factura = Factura::create([
                 'codigo'         => null,
@@ -61,6 +64,7 @@ class FacturacionService
                 'prefijo'        => null,
                 'consecutivo'    => null,
                 'entregado'      => $entregado ? 1 : 0, // 👈 nuevo campo
+                'estado_id' => $estadoPend->id,
             ]);
 
             $subtotal = 0;
@@ -198,6 +202,8 @@ class FacturacionService
         $factura = \App\Models\Facturacion\Factura::where('orden_servicio_id', $ordenId)
             ->where('estado_id', $estadoPend->id)
             ->first();
+        
+        $estadoPend = \App\Models\Facturacion\EstadoFactura::where('codigo', 'PEND')->firstOrFail();
 
         $subtotal = 0;
 
@@ -218,6 +224,7 @@ class FacturacionService
                 'es_prefactura'     => 0,
                 'fecha_emision'     => now(),
                 'entregado'         => $entregado ? 1 : 0,
+                'estado_id' => $estadoPend->id,
             ]);
 
             // 🔢 Generar código y consecutivo SOLO en la creación
@@ -304,8 +311,31 @@ class FacturacionService
             'created_at'        => now(),
         ]);
 
-        $pago->save(); // El trigger actualiza estado y auditoría automáticamente
-        return $pago;
+    $pago->save();
+
+    // 🔹 1. Verificar si el total pagado cubre toda la factura
+    $totalPagado = $factura->pagos()->sum('valor');
+    if ($totalPagado >= $factura->total) {
+        $estadoPagada = \App\Models\Facturacion\EstadoFactura::where('codigo', self::EST_PAGA)->first();
+
+        if ($estadoPagada) {
+            // Actualizar factura y detalles
+            $factura->update(['estado_id' => $estadoPagada->id]);
+            \App\Models\Facturacion\FacturaDetalle::where('factura_id', $factura->id)
+                ->update(['estado_id' => $estadoPagada->id]);
+
+            // Registrar auditoría
+            \App\Models\Facturacion\FacturaAuditoria::create([
+                'factura_id' => $factura->id,
+                'usuario_id' => $usuarioId,
+                'accion'     => 'PAGAR',
+                'detalle'    => 'Factura completamente pagada. Todos los ítems marcados como pagados.',
+                'created_at' => now(),
+            ]);
+        }
+    }
+
+    return $pago;
     }
 
     /**
@@ -323,16 +353,56 @@ class FacturacionService
         $estadoAnulada = EstadoFactura::where('codigo', self::EST_ANUL)->firstOrFail();
 
         DB::transaction(function () use ($factura, $estadoAnulada, $usuarioId) {
-            // Solo actualiza el estado
+
+            // 🔹 1. Actualizar estado general de la factura
             $factura->update([
                 'estado_id' => $estadoAnulada->id,
                 'updated_at' => now(),
+                'entregado' => 0
             ]);
 
-            // El trigger se encargará de stock + auditoría
+            // 🔹 2. Actualizar todos los detalles a ANULADO (3)
+            \App\Models\Facturacion\FacturaDetalle::where('factura_id', $factura->id)
+                ->update(['estado_id' => $estadoAnulada->id, 'entregado' => 0]);
+
+            // 🔹 3. Si la factura proviene de una orden de servicio, revertir los equipos
+            if ($factura->orden_servicio_id) {
+                $equiposIds = \App\Models\Facturacion\FacturaDetalle::where('factura_id', $factura->id)
+                    ->whereNotNull('referencia_id')
+                    ->pluck('referencia_id')
+                    ->unique()
+                    ->toArray();
+
+                if (!empty($equiposIds)) {
+                    \App\Models\OrdenServicio\EquipoOrdenServicio::whereIn('id', $equiposIds)
+                        ->update(['entregado' => 0, 'facturado' => 0]);
+                }
+            }
+
+            // 🔹 4. Registrar auditoría
+            \App\Models\Facturacion\FacturaAuditoria::create([
+                'factura_id' => $factura->id,
+                'usuario_id' => $usuarioId,
+                'accion'     => 'ANULAR',
+                'detalle'    => 'Factura anulada completamente. Se revirtió el estado de todos los ítems.',
+                'created_at' => now(),
+            ]);
         });
 
         return $factura->fresh(['estado']);
+    }
+
+    public function anularAvanzado(Request $request, $id, AnulacionFacturaService $anulacionService)
+    {
+        try {
+            $resultado = $anulacionService->anularFacturaAvanzado($request->all(), $id);
+            return response()->json($resultado, 200);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Error al procesar la anulación avanzada',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**

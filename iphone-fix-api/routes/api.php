@@ -171,7 +171,8 @@ Route::prefix('facturacion')->middleware(['auth:sanctum'])->group(function () {
     Route::patch('facturas/{id}/anular', [FacturacionController::class, 'anular']); // Anular factura
     Route::patch('facturas/{id}/entregar', [FacturacionController::class, 'entregar']);
     Route::patch('facturas/{id}/equiposentrega', [FacturacionController::class, 'entregarEquipos']);
-
+    // 📦 Anulación avanzada (productos o equipos)
+    Route::patch('facturas/{id}/anular-avanzado', [FacturacionController::class, 'anularAvanzado']);
 
     // 💰 Pagos asociados a factura
     Route::get('facturas/{id}/pagos', [PagosFacturaController::class, 'index']);  // Listar pagos de factura

@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Facturacion\Factura;
 use App\Models\Facturacion\FacturaDetalle;
 use App\Models\Facturacion\FacturaAuditoria;
+use App\Services\Facturacion\AnulacionFacturaService;
 
 class FacturacionController extends Controller
 {
@@ -271,55 +272,83 @@ class FacturacionController extends Controller
      */
     public function anular($id)
     {
-        DB::beginTransaction();
+        \DB::beginTransaction();
         try {
-            $usuarioId = Auth::id();
-            $factura = Factura::with('detalles', 'estado')->findOrFail($id);
+            $usuarioId = \Auth::id();
+            $factura = \App\Models\Facturacion\Factura::with(['detalles','estado'])->findOrFail($id);
 
+            // 1) No permitir doble anulación
             if ($factura->estado?->codigo === 'ANUL') {
                 return response()->json(['message' => 'La factura ya está anulada.'], 422);
             }
 
+            // 2) Estado ANUL
             $estadoAnul = \App\Models\Facturacion\EstadoFactura::where('codigo', 'ANUL')->firstOrFail();
 
-            // Cambiar estado
-            $factura->update(['estado_id' => $estadoAnul->id, 'entregado' => 0]);
+            // 3) Marcar factura anulada y no entregada
+            $factura->update([
+                'estado_id' => $estadoAnul->id,
+                'entregado' => 0,
+            ]);
 
-            // Revertir entregas de detalles
-            FacturaDetalle::where('factura_id', $factura->id)->update(['entregado' => 0]);
+            // 4) Revertir entrega de cada detalle (los triggers se encargarán del inventario solo si es "producto")
+            \App\Models\Facturacion\FacturaDetalle::where('factura_id', $factura->id)
+                ->update(['entregado' => 0]);
 
-            // Revertir equipos si aplica
+            // 5) Si es factura de OS: revertir flags del/los equipos asociados
             if ($factura->orden_servicio_id) {
-                $equiposIds = FacturaDetalle::where('factura_id', $factura->id)
+                $equiposIds = \App\Models\Facturacion\FacturaDetalle::where('factura_id', $factura->id)
                     ->where('tipo_item', 'orden_servicio_equipo')
+                    ->whereNotNull('referencia_id')
                     ->pluck('referencia_id')
                     ->unique()
                     ->toArray();
 
                 if (!empty($equiposIds)) {
                     \App\Models\OrdenServicio\EquipoOrdenServicio::whereIn('id', $equiposIds)
-                        ->update(['entregado' => 0, 'facturado' => 0]);
+                        ->update([
+                            'entregado' => 0,
+                            'facturado' => 0,
+                        ]);
                 }
             }
 
-            // Auditoría
-            FacturaAuditoria::create([
+            // 6) Auditoría
+            \App\Models\Facturacion\FacturaAuditoria::create([
                 'factura_id' => $factura->id,
                 'usuario_id' => $usuarioId,
                 'accion'     => 'ANULAR',
-                'detalle'    => 'Factura anulada. Triggers manejarán reversas de inventario.',
+                'detalle'    => 'Factura anulada. Se revirtió "entregado" en factura y detalles. En OS, equipos: entregado=0, facturado=0. Inventario lo manejan los triggers.',
                 'created_at' => now(),
             ]);
 
-            DB::commit();
+            \DB::commit();
+
             return response()->json([
                 'message' => 'Factura anulada correctamente.',
-                'factura' => $factura->fresh(['estado']),
+                'factura' => $factura->fresh(['estado'])
             ]);
         } catch (\Throwable $e) {
-            DB::rollBack();
+            \DB::rollBack();
             return response()->json([
                 'message' => 'Error al anular la factura',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function anularAvanzado(Request $request, int $id, AnulacionFacturaService $anulacionService)
+    {
+        try {
+            $resultado = $anulacionService->anularFacturaAvanzado($request->all(), $id);
+
+            return response()->json([
+                'message' => 'Anulación avanzada procesada correctamente',
+                'data' => $resultado,
+            ], 200);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Error al procesar la anulación avanzada',
                 'error' => $e->getMessage(),
             ], 500);
         }
