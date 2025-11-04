@@ -8,6 +8,21 @@ class EquipoOrdenServicioResource extends JsonResource
 {
     public function toArray($request): array
     {
+        // Calcular total (solo si ya vienen cargadas las relaciones)
+        $totalTareas = $this->whenLoaded('tareas', function () {
+            return $this->tareas->sum('costo_aplicado');
+        }, 0);
+
+        $totalRepuestos = $this->whenLoaded('repuestosInventario', function () {
+            return $this->repuestosInventario->sum('costo_total');
+        }, 0);
+
+        $totalExternos = $this->whenLoaded('repuestosExternos', function () {
+            return $this->repuestosExternos->sum('costo_total');
+        }, 0);
+
+        $precioTotal = $totalTareas + $totalRepuestos + $totalExternos;
+
         return [
             'id'                     => $this->id,
             'orden_id'               => $this->orden_id,
@@ -20,6 +35,7 @@ class EquipoOrdenServicioResource extends JsonResource
             'valor_estimado'         => $this->valor_estimado !== null ? (float)$this->valor_estimado : null,
             'fecha_estimada_entrega' => optional($this->fecha_estimada_entrega)->toDateString(),
 
+            // Relación técnico
             'tecnico_asignado'       => $this->tecnico_asignado,
             'tecnico'                => $this->whenLoaded('tecnico', function () {
                 return [
@@ -29,13 +45,31 @@ class EquipoOrdenServicioResource extends JsonResource
                 ];
             }),
 
+            // Comisión
             'comision_habilitada'    => (bool)$this->comision_habilitada,
             'tipo_comision'          => $this->tipo_comision,
             'valor_comision'         => $this->valor_comision !== null ? (float)$this->valor_comision : null,
 
-            'estado'                 => $this->estado,
+            // Estado (relación)
+            'estado'                 => $this->whenLoaded('estado', function () {
+                return [
+                    'id'     => $this->estado->id,
+                    'codigo' => $this->estado->codigo ?? null,
+                    'nombre' => $this->estado->nombre ?? 'Pendiente',
+                    'color'  => $this->estado->color ?? null,
+                ];
+            }, $this->estado), // si no está cargado, muestra el valor crudo
+
+            // Nuevos campos
+            'precio_total'           => (float)$precioTotal,
+            'facturado'              => (int)$this->facturado,
+            'entregado'              => (int)$this->entregado,
+
+            // Campos varios
             'observaciones'          => $this->observaciones,
-            'fecha_finalizacion'     => $this->fecha_finalizacion ? $this->fecha_finalizacion->toDateTimeString() : null,
+            'fecha_finalizacion'     => $this->fecha_finalizacion
+                                            ? $this->fecha_finalizacion->toDateTimeString()
+                                            : null,
 
             'created_at'             => optional($this->created_at)->toDateTimeString(),
             'updated_at'             => optional($this->updated_at)->toDateTimeString(),

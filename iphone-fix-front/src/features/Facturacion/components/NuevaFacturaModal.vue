@@ -325,50 +325,124 @@
             <!-- Formulario de Facturar Servicio -->
             <form v-else-if="tipoFactura === 'servicio'" @submit.prevent="handleSubmitServicio" class="p-6">
               <div class="space-y-6">
-                <!-- Selección de orden de servicio -->
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Orden de Servicio *
-                  </label>
-                  <select
-                    v-model="servicioForm.orden_servicio_id"
-                    @change="onOrdenChange"
-                    required
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Seleccione una orden</option>
-                    <option v-for="orden in ordenesDisponibles" :key="orden.id" :value="orden.id">
-                      #{{ orden.codigo }} - {{ orden.cliente?.nombre }} ({{ orden.equipos_pendientes }} equipos)
-                    </option>
-                  </select>
-                </div>
+              <!-- Seleccionar cliente -->
+              <div class="space-y-2">
+                <label class="block text-sm font-semibold text-gray-700">Cliente *</label>
+                <div class="relative">
+                  <input
+                    v-model="searchClienteServicio"
+                    @input="buscarClientesServicio"
+                    type="text"
+                    placeholder="Buscar cliente..."
+                    class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
 
-                <!-- Equipos a facturar (si hay orden seleccionada) -->
-                <div v-if="equiposOrden.length > 0">
-                  <label class="block text-sm font-medium text-gray-700 mb-3">
-                    Equipos a Facturar
-                  </label>
-                  <div class="space-y-2">
-                    <div v-for="equipo in equiposOrden" :key="equipo.id"
-                         class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <label class="flex items-start gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          :value="equipo.id"
-                          v-model="servicioForm.equipos_seleccionados"
-                          class="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        />
-                        <div class="flex-1">
-                          <p class="font-medium text-gray-900">{{ equipo.modelo }}</p>
-                          <p class="text-sm text-gray-600">IMEI: {{ equipo.imei || '—' }}</p>
-                          <p class="text-sm font-semibold text-blue-600">
-                            Total: {{ formatMoney(equipo.total || 0) }}
-                          </p>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
+                  <!-- Resultados -->
+                  <ul
+                    v-if="clientesServicioFiltrados.length > 0 && searchClienteServicio"
+                    class="absolute z-10 bg-white border border-gray-200 rounded-lg mt-1 w-full max-h-48 overflow-y-auto shadow-lg"
+                  >
+                    <li
+                      v-for="c in clientesServicioFiltrados"
+                      :key="c.id"
+                      @click="seleccionarClienteServicio(c)"
+                      class="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
+                    >
+                      <div class="font-medium text-gray-900">{{ c.nombre }}</div>
+                      <div class="text-sm text-gray-500">{{ c.documento }}</div>
+                    </li>
+                  </ul>
                 </div>
+              </div>
+
+              <!-- Órdenes del cliente -->
+              <div v-if="ordenesCliente.length > 0" class="mt-4">
+                <label class="block text-sm font-semibold text-gray-700">Órdenes de servicio</label>
+                <select
+                  v-model="ordenSeleccionadaId"
+                  @change="seleccionarOrden(Number(ordenSeleccionadaId))"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Seleccione una orden</option>
+                  <option
+                    v-for="orden in ordenesCliente"
+                    :key="orden.id"
+                    :value="orden.id"
+                  >
+                    {{ orden.codigo_orden }} - {{ orden.estado.charAt(0).toUpperCase() + orden.estado.slice(1) }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Equipos asociados -->
+              <div v-if="equiposOrdenSeleccionada.length > 0" class="mt-4 border rounded-lg overflow-hidden">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-gray-700">
+                  <tr>
+                    <th class="pl-4 py-2 text-left w-12">Facturar</th>
+                    <th class="px-4 py-2 text-left">Equipo</th>
+                    <th class="px-4 py-2 text-left">Estado</th>
+                    <th class="px-4 py-2 text-center w-24">Entregado</th>
+                    <th class="px-4 py-2 text-center w-24">Facturado</th>
+                    <th class="px-4 py-2 text-right w-28">Total</th>
+                  </tr>
+                </thead>
+
+                <tbody class="divide-y divide-gray-100">
+                  <tr v-for="equipo in equiposOrdenSeleccionada" :key="equipo.id">
+                    <!-- Checkbox de Facturar -->
+                    <td class="pl-4 py-2 text-left">
+                      <input
+                        type="checkbox"
+                        :value="equipo.id"
+                        v-model="servicioForm.equipos_seleccionados"
+                        :checked="equipo.seleccionado"
+                        :disabled="equipo.bloqueado"
+                        class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-60"
+                      />
+                    </td>
+
+                    <!-- Datos del Equipo -->
+                    <td class="px-4 py-2">
+                      {{ equipo.modelo || equipo.descripcion }}
+                      <div class="text-xs text-gray-500">
+                        IMEI: {{ equipo.imei_serial || '—' }}
+                      </div>
+                    </td>
+
+                    <!-- Estado -->
+                    <td class="px-4 py-2 capitalize">
+                      {{ equipo._estadoPlano || 'pendiente' }}
+                    </td>
+
+                    <!-- Entregado -->
+                    <td class="px-4 py-2 text-center">
+                      <input
+                        type="checkbox"
+                        :checked="Number(equipo.entregado) === 1"
+                        disabled
+                        class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500 disabled:opacity-70"
+                      />
+                    </td>
+
+                    <!-- Facturado -->
+                    <td class="px-4 py-2 text-center">
+                      <input
+                        type="checkbox"
+                        :checked="Number(equipo.facturado) === 1"
+                        disabled
+                        class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-70"
+                      />
+                    </td>
+
+                    <!-- Total -->
+                    <td class="px-4 py-2 text-right font-medium text-gray-900">
+                      {{ formatMoney(equipo.precio_total || 0) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              </div>
 
                 <!-- Forma de pago y observaciones -->
                 <div class="grid grid-cols-2 gap-4">
@@ -458,11 +532,10 @@ import {
   createFacturaVenta, 
   createFacturaServicio,
 } from '../api/facturacion'
-import type { FormaPago } from '../types/factura'
 
 // Estado búsqueda cliente (búsqueda en vivo)
-import { fetchFormasPago } from '../api/facturacion'
-import { fetchClientes } from '../../OrdenServicio/api/clientes' // ✅ asegúrate que existe este endpoint
+import { fetchFormasPago,  fetchOrdenesPorCliente, fetchEquiposDeOrden} from '../api/facturacion'
+import { fetchClientes  } from '../../OrdenServicio/api/clientes' // ✅ asegúrate que existe este endpoint
 import { fetchInventario } from '../../inventario/api/inventario'
 
 // cliente
@@ -479,6 +552,16 @@ const tipoPrecioTemp = ref<'DET' | 'MAY'>('DET')
 
 // Lista de formas de pago
 const formasPago = ref<any[]>([])
+
+// Estado de búsqueda de cliente (para facturar servicio)
+const searchClienteServicio = ref('')
+const clientesServicioFiltrados = ref<any[]>([])
+const clienteSeleccionadoServicio = ref<any | null>(null)
+
+// Órdenes y equipos
+const ordenesCliente = ref<any[]>([])
+const ordenSeleccionadaId = ref<number | null>(null)
+const equiposOrdenSeleccionada = ref<any[]>([])
 
 // Buscar clientes en vivo
 async function buscarClientes() {
@@ -572,6 +655,115 @@ onMounted(async () => {
     formasPago.value = []
   }
 })
+
+// Buscar clientes en vivo
+async function buscarClientesServicio() {
+  if (searchClienteServicio.value.length < 2) {
+    clientesServicioFiltrados.value = []
+    return
+  }
+
+  try {
+    const res = await fetchClientes({ q: searchClienteServicio.value, per_page: 5 })
+    clientesServicioFiltrados.value = res.data || []
+  } catch (error) {
+    console.error('Error buscando clientes:', error)
+    toast.error('No se pudo buscar el cliente.')
+  }
+}
+
+// Seleccionar cliente
+function seleccionarClienteServicio(cliente: any) {
+  clienteSeleccionadoServicio.value = cliente
+  searchClienteServicio.value = `${cliente.nombre} - ${cliente.documento}`
+  clientesServicioFiltrados.value = []
+  cargarOrdenesCliente()
+}
+
+// cargar ordenes
+async function cargarOrdenesCliente() {
+  if (!clienteSeleccionadoServicio.value?.id) return
+
+  try {
+    const resp = await fetchOrdenesPorCliente(clienteSeleccionadoServicio.value.id)
+    const ordenes = resp.data ? resp.data : resp
+
+    // ✅ Filtrar solo las pendientes
+    ordenesCliente.value = ordenes.filter(o => o.estado === 'pendiente')
+
+    console.log('📦 Órdenes pendientes:', ordenesCliente.value)
+  } catch (error) {
+    console.error('Error cargando órdenes:', error)
+    toast.error('No se pudieron cargar las órdenes del cliente.')
+    ordenesCliente.value = []
+  }
+}
+
+// Seleccionar orden
+async function seleccionarOrden(ordenId: number) {
+  console.log('🟢 seleccionando orden:', ordenId)
+  ordenSeleccionadaId.value = ordenId
+
+  // Buscar la orden dentro del array
+  const orden = ordenesCliente.value.find(o => o.id === ordenId)
+  if (!orden) {
+    console.warn('⚠️ No se encontró la orden seleccionada.')
+    equiposOrdenSeleccionada.value = []
+    servicioForm.value.equipos_seleccionados = []
+    return
+  }
+
+  // Mostrar datos recibidos
+  console.log('📦 Equipos crudos de la orden:', orden.equipos)
+
+  // Procesar los equipos
+  equiposOrdenSeleccionada.value = (orden.equipos || []).map(eq => {
+    const estadoPlano = (
+      eq?.estado?.codigo ||
+      eq?.estado?.nombre ||
+      eq?.estado ||
+      ''
+    ).toString().toLowerCase()
+
+    const esFinalizado = estadoPlano.includes('finalizado')
+    const estaFacturado = Number(eq.facturado) === 1
+    const estaEntregado = Number(eq.entregado) === 1
+
+    const seleccionado = esFinalizado && !estaFacturado
+    const bloqueado = !esFinalizado || estaFacturado
+
+    console.log(
+      `🧩 Equipo ${eq.id}: estado=${estadoPlano}, facturado=${eq.facturado}, entregado=${eq.entregado}, seleccionado=${seleccionado}, bloqueado=${bloqueado}`
+    )
+
+    return {
+      ...eq,
+      _estadoPlano: estadoPlano,
+      total: eq.precio_total || 0,
+      seleccionado,
+      bloqueado,
+    }
+  })
+
+  // Inicializar equipos seleccionados
+  servicioForm.value.equipos_seleccionados = equiposOrdenSeleccionada.value
+    .filter(e => e.seleccionado)
+    .map(e => e.id)
+
+  console.log('✅ Equipos procesados:', equiposOrdenSeleccionada.value)
+  console.log('🧾 IDs seleccionados por defecto:', servicioForm.value.equipos_seleccionados)
+}
+
+// Helper para formatear valores monetarios
+function formatMoney(amount: number): string {
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount || 0)
+}
+
 
 // Importar APIs necesarias (asumiendo que existen)
 // import { fetchClientes } from '../../Cliente/api/cliente'
@@ -669,39 +861,6 @@ const calcularTotalServicio = () => {
   return equiposOrden.value
     .filter(e => servicioForm.equipos_seleccionados.includes(e.id))
     .reduce((sum, equipo) => sum + (equipo.total || 0), 0)
-}
-
-// Método para cuando cambia la orden
-const onOrdenChange = async () => {
-  if (!servicioForm.orden_servicio_id) {
-    equiposOrden.value = []
-    servicioForm.equipos_seleccionados = []
-    return
-  }
-  
-  // Aquí deberías cargar los equipos de la orden seleccionada
-  // Por ahora simulo con datos de ejemplo
-  equiposOrden.value = [
-    {
-      id: 1,
-      modelo: 'iPhone 12',
-      imei: '123456789',
-      total: 150000
-    }
-  ]
-  
-  // Seleccionar todos por defecto
-  servicioForm.equipos_seleccionados = equiposOrden.value.map(e => e.id)
-}
-
-// Helpers
-const formatMoney = (amount: number): string => {
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(amount)
 }
 
 // Enviar formulario de venta

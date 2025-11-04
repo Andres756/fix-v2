@@ -12,15 +12,44 @@ use App\Models\OrdenServicio\EquipoOrdenServicio;
 class EquipoOrdenServicioController extends Controller
 {
     /**
-     * Lista los equipos de una orden del cliente.
+     * Lista los equipos de una orden del cliente con sus totales.
      */
     public function index($clienteId, $ordenId)
     {
-        // Garantiza que la orden pertenece al cliente
+        // Validar que la orden pertenezca al cliente
         $orden = OrdenServicio::where('cliente_id', $clienteId)->findOrFail($ordenId);
 
-        $equipos = $orden->equipos()->latest('id')->get();
+        // Cargar relaciones necesarias
+        $equipos = $orden->equipos()
+            ->with(['estado', 'tareas', 'repuestosInventario', 'repuestosExternos'])
+            ->latest('id')
+            ->get();
 
+        // Calcular costos totales reutilizando la lógica del método costos()
+        $equipos->transform(function ($equipo) {
+            $costoActividades = $equipo->tareas->sum('costo_aplicado');
+            $costoRepuestos   = $equipo->repuestosInventario->sum('costo_total');
+            $costoExternos    = $equipo->repuestosExternos->sum('costo_total');
+
+            $costoReal = $costoActividades + $costoRepuestos + $costoExternos;
+
+            $valorEstimado = $equipo->valor_estimado ?? 0;
+            $diferencia    = $costoReal - $valorEstimado;
+
+            // Agregar los campos calculados directamente al modelo
+            $equipo->precio_total = $costoReal;
+            $equipo->costo_actividades = $costoActividades;
+            $equipo->costo_repuestos   = $costoRepuestos;
+            $equipo->costo_externos    = $costoExternos;
+            $equipo->diferencia        = $diferencia;
+            $equipo->estado_presupuesto = $diferencia > 0
+                ? 'superado'
+                : ($diferencia < 0 ? 'por_debajo' : 'exacto');
+
+            return $equipo;
+        });
+
+        // Devolver usando el Resource para mantener consistencia
         return EquipoOrdenServicioResource::collection($equipos);
     }
 

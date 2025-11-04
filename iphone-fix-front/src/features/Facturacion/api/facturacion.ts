@@ -1,5 +1,6 @@
 // features/Facturacion/api/facturacion.ts
 import http from '../../../shared/api/http'
+import axios from 'axios'
 import type {
   Factura,
   FiltrosFactura,
@@ -408,3 +409,14 @@ export async function fetchTiposVenta(): Promise<Array<{
   }
 
 }
+
+export async function fetchOrdenesPorCliente(clienteId: number) {
+  const res = await http.get(`/clientes/${clienteId}/ordenes`)
+  return res.data || []
+}
+
+export async function fetchEquiposDeOrden(clienteId: number, ordenId: number) {
+  const res = await http.get(`/clientes/${clienteId}/ordenes/${ordenId}/equipos`)
+  return res.data || []
+}
+
