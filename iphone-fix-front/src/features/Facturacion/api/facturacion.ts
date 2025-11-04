@@ -74,7 +74,7 @@ export async function fetchFacturas(filters?: FiltrosFactura): Promise<FacturaLi
     if (filters?.page) params.append('page', filters.page.toString())
     if (filters?.per_page) params.append('per_page', filters.per_page.toString())
     
-    const response = await http.get(`/api/facturacion/facturas?${params}`)
+    const response = await http.get(`/facturacion/facturas?${params}`)
     return response.data
   } catch (error) {
     console.error('Error fetching facturas:', error)
@@ -87,7 +87,7 @@ export async function fetchFacturas(filters?: FiltrosFactura): Promise<FacturaLi
  */
 export async function getFactura(facturaId: number): Promise<Factura> {
   try {
-    const response = await http.get(`/api/facturacion/facturas/${facturaId}`)
+    const response = await http.get(`/facturacion/facturas/${facturaId}`)
     return unwrap(response)
   } catch (error) {
     console.error('Error fetching factura:', error)
@@ -100,7 +100,7 @@ export async function getFactura(facturaId: number): Promise<Factura> {
  */
 export async function createFacturaVenta(payload: CreateFacturaVentaPayload): Promise<Factura> {
   try {
-    const response = await http.post('/api/facturacion/facturas', payload)
+    const response = await http.post('/facturacion/facturas', payload)
     return response.data.factura
   } catch (error) {
     console.error('Error creating factura venta:', error)
@@ -113,10 +113,31 @@ export async function createFacturaVenta(payload: CreateFacturaVentaPayload): Pr
  */
 export async function createFacturaServicio(payload: CreateFacturaServicioPayload): Promise<Factura> {
   try {
-    const response = await http.post('/api/facturacion/facturas', payload)
+    const response = await http.post('/facturacion/facturas', payload)
     return response.data.factura
   } catch (error) {
     console.error('Error creating factura servicio:', error)
+    throw new Error(extractErrorMessage(error))
+  }
+}
+
+/**
+ * Prefacturar orden de servicio
+ */
+export async function prefacturarOrden(
+  ordenId: number,
+  payload?: {
+    equipos_seleccionados?: number[]
+    forma_pago_id?: number
+    observaciones?: string
+    entregado?: boolean
+  }
+): Promise<Factura> {
+  try {
+    const response = await http.post(`/facturacion/ordenes/${ordenId}/prefacturar`, payload || {})
+    return response.data.factura || response.data
+  } catch (error) {
+    console.error('Error prefacturando orden:', error)
     throw new Error(extractErrorMessage(error))
   }
 }
@@ -126,7 +147,7 @@ export async function createFacturaServicio(payload: CreateFacturaServicioPayloa
  */
 export async function createPrefactura(payload: CreatePrefacturaPayload): Promise<Factura> {
   try {
-    const response = await http.post('/api/facturacion/prefacturas', payload)
+    const response = await http.post('/facturacion/prefacturas', payload)
     return response.data.factura || response.data
   } catch (error) {
     console.error('Error creating prefactura:', error)
@@ -142,7 +163,7 @@ export async function convertirPrefactura(
   formaPagoId?: number
 ): Promise<Factura> {
   try {
-    const response = await http.post(`/api/facturacion/prefacturas/${prefacturaId}/convertir`, {
+    const response = await http.post(`/facturacion/prefacturas/${prefacturaId}/convertir`, {
       forma_pago_id: formaPagoId
     })
     return response.data.factura
@@ -167,7 +188,7 @@ export async function fetchPagosFactura(facturaId: number): Promise<{
   pagos: PagoFactura[]
 }> {
   try {
-    const response = await http.get(`/api/facturacion/facturas/${facturaId}/pagos`)
+    const response = await http.get(`/facturacion/facturas/${facturaId}/pagos`)
     return response.data
   } catch (error) {
     console.error('Error fetching pagos:', error)
@@ -187,7 +208,7 @@ export async function registrarPagos(
   vueltas: number
 }> {
   try {
-    const response = await http.post(`/api/facturacion/facturas/${facturaId}/pagos`, payload)
+    const response = await http.post(`/facturacion/facturas/${facturaId}/pagos`, payload)
     return response.data
   } catch (error) {
     console.error('Error registering pagos:', error)
@@ -198,7 +219,7 @@ export async function registrarPagos(
 // ========== ANULACIÓN ==========
 
 /**
- * Anular una factura
+ * Anular una factura completa
  */
 export async function anularFactura(
   facturaId: number, 
@@ -208,10 +229,33 @@ export async function anularFactura(
   factura: Factura
 }> {
   try {
-    const response = await http.post(`/api/facturacion/facturas/${facturaId}/anular`, payload)
+    const response = await http.patch(`/facturacion/facturas/${facturaId}/anular`, payload)
     return response.data
   } catch (error) {
     console.error('Error anulando factura:', error)
+    throw new Error(extractErrorMessage(error))
+  }
+}
+
+/**
+ * Anulación avanzada (parcial por items)
+ */
+export async function anularFacturaAvanzado(
+  facturaId: number,
+  payload: {
+    motivo: string
+    items_anular: number[]
+    observaciones?: string
+  }
+): Promise<{
+  message: string
+  factura: Factura
+}> {
+  try {
+    const response = await http.patch(`/facturacion/facturas/${facturaId}/anular-avanzado`, payload)
+    return response.data
+  } catch (error) {
+    console.error('Error en anulación avanzada:', error)
     throw new Error(extractErrorMessage(error))
   }
 }
@@ -224,7 +268,7 @@ export async function verificarAnulacion(facturaId: number): Promise<{
   mensaje?: string
 }> {
   try {
-    const response = await http.get(`/api/facturacion/facturas/${facturaId}/verificar-anulacion`)
+    const response = await http.get(`/facturacion/facturas/${facturaId}/verificar-anulacion`)
     return response.data
   } catch (error) {
     console.error('Error verificando anulación:', error)
@@ -235,12 +279,49 @@ export async function verificarAnulacion(facturaId: number): Promise<{
 // ========== IMPRESIÓN/EXPORT ==========
 
 /**
+ * Marcar factura como entregada
+ */
+export async function entregarFactura(facturaId: number): Promise<{
+  message: string
+  factura: Factura
+}> {
+  try {
+    const response = await http.patch(`/facturacion/facturas/${facturaId}/entregar`)
+    return response.data
+  } catch (error) {
+    console.error('Error marcando entrega:', error)
+    throw new Error(extractErrorMessage(error))
+  }
+}
+
+/**
+ * Entregar equipos específicos (solo órdenes de servicio)
+ */
+export async function entregarEquipos(
+  facturaId: number,
+  equiposIds: number[]
+): Promise<{
+  message: string
+  factura: Factura
+}> {
+  try {
+    const response = await http.patch(`/facturacion/facturas/${facturaId}/equiposentrega`, {
+      equipos: equiposIds
+    })
+    return response.data
+  } catch (error) {
+    console.error('Error entregando equipos:', error)
+    throw new Error(extractErrorMessage(error))
+  }
+}
+
+/**
  * Obtener URL de impresión de factura
  */
 export async function getFacturaPrintUrl(facturaId: number): Promise<string> {
   try {
-    const response = await http.get(`/api/facturacion/facturas/${facturaId}/imprimir`)
-    return response.data.url || `/api/facturacion/facturas/${facturaId}/pdf`
+    const response = await http.get(`/facturacion/facturas/${facturaId}/imprimir`)
+    return response.data.url || `/facturacion/facturas/${facturaId}/pdf`
   } catch (error) {
     console.error('Error getting print URL:', error)
     throw new Error(extractErrorMessage(error))
@@ -252,7 +333,7 @@ export async function getFacturaPrintUrl(facturaId: number): Promise<string> {
  */
 export async function downloadFacturaPDF(facturaId: number): Promise<Blob> {
   try {
-    const response = await http.get(`/api/facturacion/facturas/${facturaId}/pdf`, {
+    const response = await http.get(`/facturacion/facturas/${facturaId}/pdf`, {
       responseType: 'blob'
     })
     return response.data
@@ -269,7 +350,7 @@ export async function downloadFacturaPDF(facturaId: number): Promise<Blob> {
  */
 export async function fetchResumenFacturacion(): Promise<ResumenFacturacion> {
   try {
-    const response = await http.get('/api/facturacion/resumen')
+    const response = await http.get('/facturacion/resumen')
     return response.data
   } catch (error) {
     console.error('Error fetching resumen:', error)
@@ -284,7 +365,7 @@ export async function fetchResumenFacturacion(): Promise<ResumenFacturacion> {
  */
 export async function fetchFormasPago(): Promise<FormaPago[]> {
   try {
-    const response = await http.get('/api/parametros/formas-pago/options')
+    const response = await http.get('/parametros/formas-pago/options')
     return unwrapArray(response)
   } catch (error) {
     console.error('Error fetching formas pago:', error)
@@ -302,7 +383,7 @@ export async function fetchEstadosFactura(): Promise<Array<{
   color: string
 }>> {
   try {
-    const response = await http.get('/api/parametros/estados-factura/options')
+    const response = await http.get('/parametros/estados-factura/options')
     return unwrapArray(response)
   } catch (error) {
     console.error('Error fetching estados:', error)
@@ -319,10 +400,11 @@ export async function fetchTiposVenta(): Promise<Array<{
   nombre: string
 }>> {
   try {
-    const response = await http.get('/api/parametros/tipos-venta/options')
+    const response = await http.get('/parametros/tipos-venta/options')
     return unwrapArray(response)
   } catch (error) {
     console.error('Error fetching tipos venta:', error)
     throw new Error(extractErrorMessage(error))
   }
+
 }

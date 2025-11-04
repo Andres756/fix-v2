@@ -154,8 +154,8 @@ Route::prefix('plan-separe')->middleware(['auth:sanctum'])->group(function () {
     Route::post('/{id}/abonos', [AbonoController::class, 'store']);
 
     // Devoluciones
-    Route::get('/{id}/devoluciones', [DevolucionController::class, 'index']);
-    Route::post('/{id}/devoluciones', [DevolucionController::class, 'store']);
+    // Route::get('/{id}/devoluciones', [DevolucionController::class, 'index']);
+    // Route::post('/{id}/devoluciones', [DevolucionController::class, 'store']);
 
     Route::patch('/{id}/reasignar', [PlanSepareController::class, 'reasignar']);
 

@@ -71,143 +71,183 @@
                 >
                   Facturar Servicio
                 </button>
-                <button
-                  @click="tipoFactura = 'prefactura'"
-                  :class="[
-                    'px-4 py-2 font-medium rounded-t-lg transition-colors',
-                    tipoFactura === 'prefactura' 
-                      ? 'bg-white text-purple-600 border-t border-l border-r border-gray-200' 
-                      : 'text-gray-500 hover:text-gray-700'
-                  ]"
-                >
-                  Prefactura / Cotización
-                </button>
               </div>
             </div>
 
             <!-- Formulario de Venta Directa -->
             <form v-if="tipoFactura === 'venta'" @submit.prevent="handleSubmitVenta" class="p-6">
               <div class="space-y-6">
-                <!-- Cliente -->
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2">Cliente *</label>
-                  <select
-                    v-model="ventaForm.cliente_id"
+              <!-- Cliente buscable -->
+              <div class="space-y-2">
+                <label class="block text-sm font-semibold text-gray-700">
+                  Cliente *
+                </label>
+                <div class="relative">
+                  <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                  </div>
+                  <input
+                    v-model="searchCliente"
+                    @input="buscarClientes"
                     required
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    type="text"
+                    placeholder="Buscar por documento o apellido..."
+                    class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  />
+
+                  <!-- Resultados -->
+                  <ul
+                    v-if="clientesFiltrados.length > 0 && searchCliente"
+                    class="absolute bg-white border border-gray-200 rounded-lg mt-1 w-full max-h-40 overflow-y-auto shadow-lg z-10"
                   >
-                    <option value="">Seleccione un cliente</option>
-                    <option v-for="cliente in clientes" :key="cliente.id" :value="cliente.id">
-                      {{ cliente.nombre }} - {{ cliente.documento }}
-                    </option>
-                  </select>
+                    <li
+                      v-for="c in clientesFiltrados"
+                      :key="c.id"
+                      @click="seleccionarCliente(c)"
+                      class="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
+                    >
+                      <div class="font-medium text-gray-900">{{ c.nombre }}</div>
+                      <div class="text-sm text-gray-500">{{ c.documento }}</div>
+                      <div v-if="c.telefono" class="text-xs text-gray-400">{{ c.telefono }}</div>
+                    </li>
+                  </ul>
                 </div>
+              </div>
 
                 <!-- Productos -->
-                <div>
-                  <div class="flex items-center justify-between mb-3">
-                    <label class="text-sm font-medium text-gray-700">Productos *</label>
-                    <button
-                      type="button"
-                      @click="addProducto"
-                      class="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
-                    >
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                      </svg>
-                      Agregar producto
-                    </button>
-                  </div>
-
-                  <div class="space-y-3">
-                    <div v-for="(item, index) in ventaForm.items" :key="index"
-                         class="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                      <div class="grid grid-cols-12 gap-3">
-                        <!-- Producto -->
-                        <div class="col-span-5">
-                          <select
-                            v-model="item.inventario_id"
-                            @change="onProductoChange(index)"
-                            required
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                <div class="space-y-4">
+                  <div class="flex items-end gap-3">
+                    <!-- Buscador -->
+                    <div class="flex-1 relative">
+                      <label class="block text-sm font-semibold text-gray-700 mb-1">Producto *</label>
+                      <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                        </div>
+                        <input
+                          v-model="searchProducto"
+                          @input="buscarProductos"
+                          type="text"
+                          placeholder="Buscar por nombre o código..."
+                          class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        />
+                        <!-- Resultados -->
+                        <ul
+                          v-if="productosFiltrados.length > 0 && searchProducto"
+                          class="absolute left-0 right-0 bg-white border border-gray-200 rounded-lg mt-1 w-full max-h-56 overflow-y-auto shadow-lg z-20"
+                        >
+                          <li
+                            v-for="p in productosFiltrados"
+                            :key="p.id"
+                            @click="seleccionarProducto(p)"
+                            class="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
                           >
-                            <option value="">Seleccione producto</option>
-                            <option v-for="producto in productos" :key="producto.id" :value="producto.id">
-                              {{ producto.nombre }} - {{ producto.codigo }}
-                            </option>
-                          </select>
-                        </div>
-
-                        <!-- Cantidad -->
-                        <div class="col-span-2">
-                          <input
-                            v-model.number="item.cantidad"
-                            type="number"
-                            min="1"
-                            required
-                            @input="calculateItemTotal(index)"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Cant."
-                          />
-                        </div>
-
-                        <!-- Tipo precio -->
-                        <div class="col-span-2">
-                          <select
-                            v-model="item.tipo_precio"
-                            @change="onTipoPrecioChange(index)"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="DET">Detal</option>
-                            <option value="MAY">Mayorista</option>
-                          </select>
-                        </div>
-
-                        <!-- Precio -->
-                        <div class="col-span-2">
-                          <div class="relative">
-                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                            <input
-                              v-model.number="item.precio"
-                              type="number"
-                              min="0"
-                              step="1"
-                              readonly
-                              class="w-full pl-8 pr-3 py-2 bg-gray-100 border border-gray-300 rounded-lg"
-                              placeholder="0"
-                            />
-                          </div>
-                        </div>
-
-                        <!-- Eliminar -->
-                        <div class="col-span-1 flex items-center">
-                          <button
-                            v-if="ventaForm.items.length > 1"
-                            type="button"
-                            @click="removeProducto(index)"
-                            class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-
-                      <!-- Subtotal del item -->
-                      <div class="mt-2 text-right">
-                        <span class="text-sm text-gray-600">Subtotal: </span>
-                        <span class="font-semibold text-gray-900">
-                          {{ formatMoney(item.cantidad * (item.precio || 0)) }}
-                        </span>
+                            <div class="font-medium text-gray-900">{{ p.nombre }}</div>
+                            <div class="text-sm text-gray-500">{{ p.codigo }}</div>
+                            <div class="text-xs text-gray-400">$ {{ formatMoney(p.precio || 0) }}</div>
+                          </li>
+                        </ul>
                       </div>
                     </div>
+
+                    <!-- Cantidad -->
+                    <div class="w-24">
+                      <label class="block text-sm font-semibold text-gray-700 mb-1">Cant.</label>
+                      <input
+                        v-model.number="cantidadTemp"
+                        type="number"
+                        min="1"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+
+                    <!-- Tipo precio -->
+                    <div class="w-32">
+                      <label class="block text-sm font-semibold text-gray-700 mb-1">Tipo</label>
+                      <select
+                        v-model="tipoPrecioTemp"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="DET">Detal</option>
+                        <option value="MAY">Mayorista</option>
+                      </select>
+                    </div>
+
+                    <!-- Botón -->
+                    <div>
+                      <button
+                        type="button"
+                        @click="agregarProducto"
+                        class="mt-6 px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      >
+                        Agregar
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Tabla de productos agregados -->
+                  <div v-if="ventaForm.items.length > 0" class="overflow-x-auto rounded-lg border border-gray-200">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                      <thead class="bg-gray-50 text-gray-700">
+                        <tr>
+                          <th class="px-4 py-2 text-left">Código</th>
+                          <th class="px-4 py-2 text-left">Nombre</th>
+                          <th class="px-4 py-2 text-center">Cant.</th>
+                          <th class="px-4 py-2 text-center">Precio</th>
+                          <th class="px-4 py-2 text-center">Subtotal</th>
+                          <th class="px-4 py-2 text-center">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-gray-100 bg-white">
+                        <tr v-for="(item, index) in ventaForm.items" :key="index">
+                          <td class="px-4 py-2">{{ item.codigo }}</td>
+                          <td class="px-4 py-2">{{ item.nombre }}</td>
+                          <td class="px-4 py-2 text-center">{{ item.cantidad }}</td>
+                          <td class="px-4 py-2 text-center">{{ formatMoney(item.precio) }}</td>
+                          <td class="px-4 py-2 text-center font-semibold">
+                            {{ formatMoney(item.cantidad * item.precio) }}
+                          </td>
+                          <td class="px-4 py-2 text-center">
+                            <button
+                              @click="removeProducto(index)"
+                              class="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors flex items-center justify-center mx-auto"
+                              title="Eliminar producto"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="w-5 h-5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                stroke-width="2"
+                              >
+                                <path
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
                 <!-- Forma de pago y observaciones -->
                 <div class="grid grid-cols-2 gap-4">
+                  <!-- Forma de pago -->
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Forma de Pago</label>
                     <select
@@ -215,7 +255,11 @@
                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Seleccione (opcional)</option>
-                      <option v-for="forma in formasPago" :key="forma.id" :value="forma.id">
+                      <option
+                        v-for="forma in formasPago"
+                        :key="forma.id"
+                        :value="forma.id"
+                      >
                         {{ forma.nombre }}
                       </option>
                     </select>
@@ -400,17 +444,6 @@
               </div>
             </form>
 
-            <!-- Mensaje para Prefactura -->
-            <div v-else-if="tipoFactura === 'prefactura'" class="p-12 text-center">
-              <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                    d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                </svg>
-              </div>
-              <h3 class="text-lg font-semibold text-gray-900 mb-2">Módulo de Prefacturas</h3>
-              <p class="text-gray-600">Esta funcionalidad estará disponible próximamente</p>
-            </div>
           </div>
         </div>
       </div>
@@ -424,9 +457,121 @@ import { toast } from 'vue3-toastify'
 import { 
   createFacturaVenta, 
   createFacturaServicio,
-  fetchFormasPago 
 } from '../api/facturacion'
 import type { FormaPago } from '../types/factura'
+
+// Estado búsqueda cliente (búsqueda en vivo)
+import { fetchFormasPago } from '../api/facturacion'
+import { fetchClientes } from '../../OrdenServicio/api/clientes' // ✅ asegúrate que existe este endpoint
+import { fetchInventario } from '../../inventario/api/inventario'
+
+// cliente
+const searchCliente = ref('')
+const clientesFiltrados = ref<any[]>([])
+const selectedClienteId = ref<number | ''>('')
+
+// Productos
+const searchProducto = ref('')
+const productosFiltrados = ref<any[]>([])
+const productoSeleccionado = ref<any | null>(null)
+const cantidadTemp = ref(1)
+const tipoPrecioTemp = ref<'DET' | 'MAY'>('DET')
+
+// Lista de formas de pago
+const formasPago = ref<any[]>([])
+
+// Buscar clientes en vivo
+async function buscarClientes() {
+  if (searchCliente.value.length < 2) {
+    clientesFiltrados.value = []
+    return
+  }
+  try {
+    const res = await fetchClientes({ q: searchCliente.value, per_page: 5 })
+    clientesFiltrados.value = res.data
+  } catch (error) {
+    console.error('Error buscando clientes:', error)
+    clientesFiltrados.value = []
+  }
+}
+
+// Seleccionar cliente
+function seleccionarCliente(cliente: any) {
+  selectedClienteId.value = cliente.id
+  searchCliente.value = `${cliente.nombre} - ${cliente.documento}`
+  clientesFiltrados.value = []
+  ventaForm.cliente_id = cliente.id // 🔗 conecta con el formulario de venta
+}
+
+// Buscar productos en vivo
+async function buscarProductos() {
+  if (searchProducto.value.length < 2) {
+    productosFiltrados.value = []
+    return
+  }
+  try {
+    const res = await fetchInventario({ q: searchProducto.value, per_page: 5 })
+    productosFiltrados.value = res.data || []
+  } catch {
+    productosFiltrados.value = []
+  }
+}
+
+// Seleccionar producto
+function seleccionarProducto(producto: any) {
+  productoSeleccionado.value = producto
+  searchProducto.value = `${producto.nombre} - ${producto.codigo}`
+  productosFiltrados.value = []
+
+  // Guarda el precio base del producto seleccionado
+  productoSeleccionado.value.precio_unitario =
+    tipoPrecioTemp.value === 'MAY'
+      ? producto.costo_mayor || producto.precio || 0
+      : producto.precio || producto.costo_mayor || 0
+}
+
+// Agregar producto a la lista
+function agregarProducto() {
+  if (!productoSeleccionado.value) {
+    toast.warning('Debes seleccionar un producto antes de agregarlo')
+    return
+  }
+
+  const producto = productoSeleccionado.value
+
+  // Determinar precio según tipo de venta
+  const precioSeleccionado =
+    tipoPrecioTemp.value === 'MAY'
+      ? producto.costo_mayor || producto.precio || 0
+      : producto.precio || producto.costo_mayor || 0
+
+  // Agregar a la lista
+  ventaForm.items.push({
+    inventario_id: producto.id,
+    codigo: producto.codigo,
+    nombre: producto.nombre,
+    cantidad: cantidadTemp.value,
+    tipo_precio: tipoPrecioTemp.value,
+    precio: precioSeleccionado,
+  })
+
+  // Reset campos temporales
+  productoSeleccionado.value = null
+  searchProducto.value = ''
+  cantidadTemp.value = 1
+}
+
+// Cargar al montar
+onMounted(async () => {
+  try {
+    const res = await fetchFormasPago()
+    // Asegúrate que el endpoint devuelva un array con { id, nombre }
+    formasPago.value = res.data || res
+  } catch (error) {
+    console.error('Error cargando formas de pago:', error)
+    formasPago.value = []
+  }
+})
 
 // Importar APIs necesarias (asumiendo que existen)
 // import { fetchClientes } from '../../Cliente/api/cliente'
@@ -451,9 +596,7 @@ const isSaving = ref(false)
 const tipoFactura = ref<'venta' | 'servicio' | 'prefactura'>('venta')
 
 // Catálogos
-const clientes = ref<any[]>([])
 const productos = ref<any[]>([])
-const formasPago = ref<FormaPago[]>([])
 const ordenesDisponibles = ref<any[]>([])
 const equiposOrden = ref<any[]>([])
 
@@ -501,9 +644,9 @@ const onProductoChange = (index: number) => {
   const producto = productos.value.find(p => p.id === Number(item.inventario_id))
   
   if (producto) {
-    item.precio = item.tipo_precio === 'MAY' && producto.precio_mayorista
-      ? producto.precio_mayorista
-      : producto.precio_venta
+    item.precio = item.tipo_precio === 'MAY' && producto.costo_mayor
+      ? producto.costo_mayor
+      : producto.precio
   }
 }
 
@@ -563,10 +706,11 @@ const formatMoney = (amount: number): string => {
 
 // Enviar formulario de venta
 const handleSubmitVenta = async () => {
-  if (!ventaForm.cliente_id) {
+  if (!selectedClienteId.value) {
     toast.warning('Debe seleccionar un cliente')
     return
   }
+  ventaForm.cliente_id = selectedClienteId.value.toString()
   
   const itemsValidos = ventaForm.items.filter(item => item.inventario_id && item.cantidad > 0)
   if (itemsValidos.length === 0) {
@@ -665,34 +809,4 @@ const handleClose = () => {
   emit('close')
 }
 
-// Cargar catálogos al montar
-onMounted(async () => {
-  try {
-    // Cargar formas de pago
-    formasPago.value = await fetchFormasPago()
-    
-    // TODO: Cargar otros catálogos
-    // clientes.value = await fetchClientes()
-    // productos.value = await fetchInventario()
-    // ordenesDisponibles.value = await fetchOrdenesFacturables()
-    
-    // Datos de ejemplo mientras tanto
-    clientes.value = [
-      { id: 1, nombre: 'Juan Pérez', documento: '1234567890' },
-      { id: 2, nombre: 'María García', documento: '0987654321' }
-    ]
-    
-    productos.value = [
-      { id: 1, codigo: 'PROD001', nombre: 'Protector iPhone', precio_venta: 25000, precio_mayorista: 20000 },
-      { id: 2, codigo: 'PROD002', nombre: 'Cargador USB-C', precio_venta: 45000, precio_mayorista: 35000 }
-    ]
-    
-    ordenesDisponibles.value = [
-      { id: 1, codigo: 'OS001', cliente: { nombre: 'Juan Pérez' }, equipos_pendientes: 2 },
-      { id: 2, codigo: 'OS002', cliente: { nombre: 'María García' }, equipos_pendientes: 1 }
-    ]
-  } catch (error) {
-    console.error('Error cargando catálogos:', error)
-  }
-})
 </script>

@@ -291,7 +291,7 @@ import 'vue3-toastify/dist/index.css'
 import FacturasTable from '../../features/Facturacion/components/FacturasTable.vue'
 import NuevaFacturaModal from '../../features/Facturacion/components/NuevaFacturaModal.vue'
 import PagoModal from '../../features/Facturacion/components/PagoModal.vue'
-// import AnularFacturaModal from '../../features/Facturacion/components/AnularFacturaModal.vue'
+import AnularFacturaModal from '../../features/Facturacion/components/AnularFacturaModal.vue'
 
 // API
 import { 
