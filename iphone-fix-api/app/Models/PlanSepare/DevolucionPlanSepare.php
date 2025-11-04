@@ -13,15 +13,16 @@ class DevolucionPlanSepare extends Model
 
     protected $fillable = [
         'plan_separe_id',
-        'valor_devolucion',
+        'monto_total',
+        'monto_devuelto',
         'porcentaje_devolucion',
-        'motivo',
+        'forma_pago_id',
         'usuario_id',
-        'fecha_devolucion',
         'observaciones',
+        'created_at',
     ];
 
-    public $timestamps = false; // usamos fecha_devolucion manualmente
+    public $timestamps = false; // usamos created_at manualmente
 
     // 🔹 Relación con el plan
     public function plan()

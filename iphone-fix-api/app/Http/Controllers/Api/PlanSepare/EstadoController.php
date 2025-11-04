@@ -3,123 +3,107 @@
 namespace App\Http\Controllers\Api\PlanSepare;
 
 use App\Http\Controllers\Controller;
-use App\Services\Facturacion\PlanSepareService;
-use App\Http\Requests\PlanSepare\UpdateEstadoPlanSepareRequest;
-use App\Http\Resources\PlanSepare\PlanSepareResource;
+use App\Models\PlanSepare\PlanSepare;
+use App\Models\PlanSepare\EstadoPlanSepare;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class EstadoController extends Controller
 {
-    protected $service;
-
-    public function __construct(PlanSepareService $service)
+    /**
+     * 🟡 Cambiar el estado de un plan manualmente (uso administrativo)
+     */
+    public function update(Request $request, int $id)
     {
-        $this->service = $service;
+        $request->validate([
+            'estado_id' => 'required|integer|exists:estados_plan_separe,id',
+            'observaciones' => 'nullable|string|max:255',
+        ]);
+
+        $usuarioId = Auth::id();
+
+        DB::beginTransaction();
+        try {
+            $plan = PlanSepare::with('inventario')->findOrFail($id);
+            $estado = EstadoPlanSepare::findOrFail($request->estado_id);
+
+            // Cambiar estado
+            $plan->update([
+                'estado_id' => $estado->id,
+            ]);
+
+            // Si el nuevo estado implica liberar el inventario
+            if (in_array(strtoupper($estado->codigo), ['ANUL', 'DEV'])) {
+                if ($plan->inventario && $plan->inventario->tipo_inventario == 1) {
+                    $plan->inventario->update(['reservado' => 0]);
+                }
+            }
+
+            // Registrar auditoría
+            DB::table('plan_separe_auditoria')->insert([
+                'plan_separe_id' => $plan->id,
+                'usuario_id' => $usuarioId,
+                'accion' => 'EDITAR',
+                'detalle' => "Cambio manual de estado a {$estado->nombre}. Observaciones: {$request->observaciones}",
+                'created_at' => now(),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => "Estado del plan separe actualizado manualmente a {$estado->nombre}.",
+                'plan' => $plan->fresh(['cliente', 'estado', 'inventario'])
+            ]);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Error al cambiar el estado.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
-     * Cambiar el estado de un plan separe
+     * 💸 Marcar plan como DEV (devolución manual)
      */
-    public function update(UpdateEstadoPlanSepareRequest $request, $id)
+    public function devolver(int $id)
     {
+        $usuarioId = Auth::id();
+
+        DB::beginTransaction();
         try {
-            $usuarioId = auth('sanctum')->id();
+            $plan = PlanSepare::with('inventario')->findOrFail($id);
+            $estadoDev = EstadoPlanSepare::where('codigo', 'DEV')->firstOrFail();
 
-            if (!$usuarioId) {
-                return response()->json([
-                    'message' => 'No se detectó una sesión activa. Inicie sesión nuevamente.'
-                ], 401);
+            $plan->update(['estado_id' => $estadoDev->id]);
+
+            if ($plan->inventario && $plan->inventario->tipo_inventario == 1) {
+                $plan->inventario->update(['reservado' => 0]);
             }
 
-            // Buscar el plan
-            $plan = \App\Models\PlanSepare\PlanSepare::find($id);
-
-            if (!$plan) {
-                return response()->json([
-                    'message' => "No se encontró el Plan Separe con ID {$id}."
-                ], 404);
-            }
-
-            // Verificar estado_id
-            if (!$request->filled('estado_id')) {
-                return response()->json([
-                    'message' => 'Debe enviar el campo estado_id.'
-                ], 422);
-            }
-
-            // Buscar el estado manualmente
-            $estado = \App\Models\PlanSepare\EstadoPlanSepare::find($request->estado_id);
-            if (!$estado) {
-                return response()->json([
-                    'message' => "El estado con ID {$request->estado_id} no existe."
-                ], 422);
-            }
-
-            // Cambiar el estado
-            $plan = $this->service->cambiarEstado(
-                $plan->id,
-                $estado->id,
-                $request->observaciones,
-                $usuarioId
-            );
-
-            return response()->json([
-                'message' => 'Estado del Plan Separe actualizado correctamente.',
-                'data' => $plan->load(['cliente', 'estado'])
+            DB::table('plan_separe_auditoria')->insert([
+                'plan_separe_id' => $plan->id,
+                'usuario_id' => $usuarioId,
+                'accion' => 'EDITAR',
+                'detalle' => 'Cambio manual a DEV (Devolución al cliente)',
+                'created_at' => now(),
             ]);
 
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => $e->getMessage()
-            ], 422);
-        }
-    }
-
-
-    public function devolver($id)
-    {
-        try {
-            $usuarioId = auth('sanctum')->id();
-
-            if (!$usuarioId) {
-                return response()->json([
-                    'message' => 'No se detectó una sesión activa. Inicie sesión nuevamente.'
-                ], 401);
-            }
-
-            // 🔎 Buscar el plan
-            $plan = \App\Models\PlanSepare\PlanSepare::find($id);
-            if (!$plan) {
-                return response()->json([
-                    'message' => "No se encontró el Plan Separe con ID {$id}."
-                ], 404);
-            }
-
-            // 🔎 Buscar el estado DEV (devolución)
-            $estadoDev = \App\Models\PlanSepare\EstadoPlanSepare::where('codigo', 'DEV')->first();
-            if (!$estadoDev) {
-                return response()->json([
-                    'message' => 'El estado DEV no está registrado en la tabla estados_plan_separe.'
-                ], 500);
-            }
-
-            // ⚙️ Cambiar el estado a DEV usando el servicio
-            $plan = $this->service->cambiarEstado($plan->id, $estadoDev->id, 'Devolución del dinero al cliente', $usuarioId);
-
-            // ⚙️ Liberar inventario (reservado = 0)
-            if ($plan->inventario_id) {
-                \DB::table('inventarios')->where('id', $plan->inventario_id)->update(['reservado' => 0]);
-            }
+            DB::commit();
 
             return response()->json([
-                'message' => 'Plan Separe marcado como devuelto correctamente.',
-                'data' => $plan->load(['cliente', 'estado', 'inventario'])
+                'message' => 'Plan separe marcado como DEV correctamente.',
+                'plan' => $plan->fresh(['cliente', 'estado', 'inventario'])
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            DB::rollBack();
             return response()->json([
-                'message' => $e->getMessage()
-            ], 422);
+                'message' => 'Error al marcar devolución.',
+                'error' => $e->getMessage(),
+            ], 500);
         }
     }
-
 }

@@ -4,71 +4,117 @@ namespace App\Http\Controllers\Api\PlanSepare;
 
 use App\Http\Controllers\Controller;
 use App\Services\Facturacion\PlanSepareService;
-use App\Http\Requests\PlanSepare\StorePlanSepareRequest;
-use App\Http\Resources\PlanSepare\PlanSepareResource;
+use App\Models\PlanSepare\PlanSepare;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class PlanSepareController extends Controller
 {
-    protected $service;
+    protected $planService;
 
-    public function __construct(PlanSepareService $service)
+    public function __construct(PlanSepareService $planService)
     {
-        $this->service = $service;
+        $this->planService = $planService;
     }
 
-    /**
-     * Listar todos los planes separe
-     */
-    public function index()
+    public function index(Request $request)
     {
-        $planes = $this->service->listarPlanes();
-        return PlanSepareResource::collection($planes);
+        $planes = PlanSepare::with(['cliente', 'inventario', 'estado'])
+            ->orderByDesc('created_at')
+            ->paginate($request->get('per_page', 15));
+
+        return response()->json($planes);
     }
 
-    /**
-     * Crear un nuevo plan separe
-     */
-    public function store(StorePlanSepareRequest $request)
+    public function show(int $id)
     {
+        $plan = PlanSepare::with(['cliente', 'inventario', 'estado', 'abonos', 'devoluciones'])
+            ->findOrFail($id);
+
+        return response()->json($plan);
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'cliente_id' => 'required|integer|exists:clientes,id',
+            'inventario_id' => 'required|integer|exists:inventarios,id',
+            'precio_total' => 'required|numeric|min:0',
+            'porcentaje_minimo' => 'required|numeric|min:10|max:100',
+            'observaciones' => 'nullable|string|max:255',
+        ]);
+
+        $usuarioId = Auth::id();
+
         try {
-            $data = $request->validated();
-            $usuarioId = auth('sanctum')->id();
-
-            if (!$usuarioId) {
-                return response()->json([
-                    'message' => 'No se detectó una sesión activa. Inicie sesión para crear un plan separe.'
-                ], 401);
-            }
-
-            $plan = $this->service->crearPlan($data, $usuarioId);
-
+            $plan = $this->planService->crearPlan($request->all(), $usuarioId);
             return response()->json([
-                'message' => 'Plan Separe creado correctamente.',
-                'data' => new PlanSepareResource(
-                    $plan->load(['cliente', 'inventario', 'estado', 'abonos', 'logs'])
-                )
+                'message' => 'Plan separe creado correctamente.',
+                'plan' => $plan,
             ], 201);
-
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return response()->json([
-                'message' => $e->getMessage()
-            ], 422);
+                'message' => 'Error al crear el plan separe.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function anular(Request $request, int $id)
+    {
+        $request->validate([
+            'motivo' => 'nullable|string|max:255',
+            'porcentaje_devolucion' => 'nullable|numeric|min:0|max:100',
+            'forma_pago_id' => 'required|integer|exists:formas_pago,id',
+            'observaciones' => 'nullable|string|max:255',
+        ]);
+
+        $usuarioId = Auth::id();
+
+        try {
+            $resultado = $this->planService->anularPlan($id, $request->all(), $usuarioId);
+            return response()->json($resultado);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Error al anular el plan separe.',
+                'error' => $e->getMessage(),
+            ], 500);
         }
     }
 
     /**
-     * Mostrar detalle de un plan separe
+     * 🔁 Reasignar plan separe (estado REA)
      */
-    public function show($id)
+    public function reasignar(Request $request, int $id)
     {
-        $plan = $this->service->listarPlanes()->firstWhere('id', $id);
+        $request->validate([
+            'nuevo_inventario_id' => 'required|integer|exists:inventarios,id',
+            'precio_total' => 'nullable|numeric|min:0',
+            'porcentaje_minimo' => 'nullable|numeric|min:10|max:100',
+        ]);
 
-        if (!$plan) {
-            return response()->json(['message' => 'Plan no encontrado'], 404);
+        $usuarioId = Auth::id();
+
+        try {
+            $plan = $this->planService->reasignarPlan(
+                $id,
+                $request->nuevo_inventario_id,
+                $usuarioId,
+                $request->input('precio_total'),
+                $request->input('porcentaje_minimo')
+            );
+
+            return response()->json([
+                'message' => 'Plan separe reasignado correctamente.',
+                'plan' => $plan,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Error al reasignar el plan separe.',
+                'error' => $e->getMessage(),
+            ], 500);
         }
-
-        $plan->load(['abonos.formaPago', 'abonos.usuario', 'logs.usuario']);
-
-        return new PlanSepareResource($plan);
     }
+
 }

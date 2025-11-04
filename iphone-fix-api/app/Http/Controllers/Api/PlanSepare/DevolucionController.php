@@ -3,76 +3,52 @@
 namespace App\Http\Controllers\Api\PlanSepare;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\PlanSepare\StoreDevolucionRequest;
-use App\Http\Resources\PlanSepare\DevolucionPlanSepareResource;
-use App\Models\PlanSepare\PlanSepare;
 use App\Models\PlanSepare\DevolucionPlanSepare;
-use App\Models\PlanSepare\EstadoPlanSepare;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class DevolucionController extends Controller
 {
-    // 🔹 Listar devoluciones de un plan
-    public function index($planId)
+    /**
+     * 📋 Listar devoluciones
+     */
+    public function index(int $planId)
     {
-        $plan = PlanSepare::findOrFail($planId);
-
-        $devoluciones = $plan->devoluciones()
-            ->orderByDesc('fecha_devolucion')
+        $devoluciones = DevolucionPlanSepare::where('plan_separe_id', $planId)
+            ->orderByDesc('created_at')
             ->get();
 
-        return DevolucionPlanSepareResource::collection($devoluciones);
+        return response()->json($devoluciones);
     }
 
-    // 🔹 Registrar una nueva devolución
-    public function store(StoreDevolucionRequest $request, $planId)
+    /**
+     * 💰 Registrar devolución manual (casos excepcionales)
+     */
+    public function store(Request $request, int $planId)
     {
-        $usuarioId = auth('sanctum')->id();
-        if (!$usuarioId) {
-            return response()->json(['message' => 'Sesión no autenticada.'], 401);
-        }
-
-        $plan = PlanSepare::findOrFail($planId);
-
-        // 💰 Total abonado
-        $totalAbonado = DB::table('abonos_plan_separe')
-            ->where('plan_separe_id', $plan->id)
-            ->sum('valor');
-
-        // 💰 Validación de monto
-        if ($request->valor_devolucion > $totalAbonado) {
-            return response()->json([
-                'message' => "El valor de devolución no puede superar el total abonado ({$totalAbonado})."
-            ], 422);
-        }
-
-        // ⚙️ Registrar devolución
-        $devolucion = DevolucionPlanSepare::create([
-            'plan_separe_id'        => $plan->id,
-            'valor_devolucion'      => $request->valor_devolucion,
-            'porcentaje_devolucion' => $totalAbonado > 0
-                ? round(($request->valor_devolucion / $totalAbonado) * 100, 2)
-                : 0,
-            'motivo'        => $request->motivo,
-            'usuario_id'    => $usuarioId,
-            'observaciones' => $request->observaciones,
-            'fecha_devolucion' => now(),
+        $request->validate([
+            'monto_total' => 'required|numeric|min:0',
+            'monto_devuelto' => 'required|numeric|min:0',
+            'porcentaje_devolucion' => 'nullable|integer|min:0|max:100',
+            'forma_pago_id' => 'required|integer|exists:formas_pago,id',
+            'observaciones' => 'nullable|string|max:255',
         ]);
 
-        // 🔄 Cambiar estado del plan a DEV
-        $estadoDev = EstadoPlanSepare::where('codigo', 'DEV')->first();
-        if ($estadoDev) {
-            $plan->update(['estado_id' => $estadoDev->id]);
-        }
+        $usuarioId = Auth::id();
 
-        // 🔓 Liberar inventario
-        if ($plan->inventario_id) {
-            DB::table('inventarios')->where('id', $plan->inventario_id)->update(['reservado' => 0]);
-        }
+        $devolucion = DevolucionPlanSepare::create([
+            'plan_separe_id' => $planId,
+            'monto_total' => $request->monto_total,
+            'monto_devuelto' => $request->monto_devuelto,
+            'porcentaje_devolucion' => $request->porcentaje_devolucion ?? 100,
+            'forma_pago_id' => $request->forma_pago_id,
+            'usuario_id' => $usuarioId,
+            'observaciones' => $request->observaciones,
+        ]);
 
         return response()->json([
             'message' => 'Devolución registrada correctamente.',
-            'data'    => new DevolucionPlanSepareResource($devolucion)
-        ]);
+            'devolucion' => $devolucion
+        ], 201);
     }
 }

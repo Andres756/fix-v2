@@ -406,6 +406,82 @@ class FacturacionService
     }
 
     /**
+     * 🔁 Anular factura generada desde Plan Separe
+     */
+    public function anularFacturaDesdePlanSepare(int $facturaId, int $usuarioId)
+    {
+        DB::beginTransaction();
+        try {
+            $factura = \App\Models\Facturacion\Factura::with(['detalles', 'estado'])->findOrFail($facturaId);
+
+            // 🟡 Obtener estado "ANULADA"
+            $estadoAnulada = \App\Models\Facturacion\EstadoFactura::where('codigo', 'ANUL')->firstOrFail();
+
+            // Evitar doble anulación
+            if ($factura->estado?->codigo === 'ANUL') {
+                return $factura;
+            }
+
+            // 🧾 Actualizar estado de factura y detalles
+            $factura->update([
+                'estado_id' => $estadoAnulada->id,
+                'entregado' => 0,
+            ]);
+
+            foreach ($factura->detalles as $detalle) {
+                $detalle->update([
+                    'entregado' => 0,
+                    'estado_id' => $estadoAnulada->id,
+                ]);
+
+                // 🔹 Si es un producto (Plan Separe), reingresar stock
+                if ($detalle->tipo_item === 'plan_separe' && $detalle->referencia_id) {
+                    $inventario = \App\Models\Inventario\Inventario::find($detalle->referencia_id);
+
+                    if ($inventario) {
+                        $stockAnterior = $inventario->stock;
+                        $inventario->increment('stock', $detalle->cantidad);
+
+                        // 📦 Registrar movimiento de inventario (entrada por devolución)
+                        \App\Models\Inventario\MovimientoInventario::create([
+                            'inventario_id'  => $inventario->id,
+                            'tipo_movimiento'=> 'entrada',
+                            'cantidad'       => $detalle->cantidad,
+                            'stock_anterior' => $stockAnterior,
+                            'stock_nuevo'    => $inventario->stock,
+                            'costo_unitario' => $inventario->costo,
+                            'motivo_id'      => DB::table('motivos_movimientos')
+                                                ->where('codigo', 'entrada_plan_separe')
+                                                ->value('id'),
+                            'documento_referencia' => $factura->codigo,
+                            'usuario_id'     => $usuarioId,
+                            'observaciones'  => "Reingreso de producto por anulación de factura Plan Separe #{$factura->codigo}",
+                            'created_at'     => now(),
+                            'updated_at'     => now(),
+                        ]);
+                    }
+                }
+            }
+
+            // 🧾 Registrar auditoría
+            \App\Models\Facturacion\FacturaAuditoria::create([
+                'factura_id' => $factura->id,
+                'usuario_id' => $usuarioId,
+                'accion'     => 'ANULAR',
+                'detalle'    => 'Factura anulada automáticamente desde la anulación de un Plan Separe.',
+                'created_at' => now(),
+            ]);
+
+            DB::commit();
+            return $factura->fresh(['estado', 'detalles']);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
+    }
+
+    /**
      * Listado y reportes desde la vista vw_facturas_resumen
      */
     public function listarResumen(array $filters = [])

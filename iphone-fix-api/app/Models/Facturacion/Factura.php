@@ -35,6 +35,7 @@ class Factura extends Model
         'consecutivo',
         'entregado',
         'orden_servicio_id',
+        'plan_separe_id',
         'es_prefactura'
     ];
 
@@ -85,6 +86,11 @@ class Factura extends Model
     public function pagos()
     {
         return $this->hasMany(PagoFactura::class, 'factura_id');
+    }
+
+    public function planSepare()
+    {
+        return $this->hasOne(\App\Models\PlanSepare\PlanSepare::class, 'factura_id');
     }
 
     public function auditorias()

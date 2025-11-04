@@ -23,6 +23,7 @@ class Inventario extends Model
         'estado_inventario_id',
         'tipo_inventario_id',
         'stock',
+        'reservado',
         'stock_minimo',
         'precio',
         'costo',

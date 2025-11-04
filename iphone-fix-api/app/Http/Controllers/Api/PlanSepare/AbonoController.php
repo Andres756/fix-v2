@@ -4,48 +4,54 @@ namespace App\Http\Controllers\Api\PlanSepare;
 
 use App\Http\Controllers\Controller;
 use App\Services\Facturacion\PlanSepareService;
-use App\Http\Requests\PlanSepare\StoreAbonoPlanSepareRequest;
-use App\Http\Resources\PlanSepare\AbonoPlanSepareResource;
+use App\Models\PlanSepare\AbonoPlanSepare;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class AbonoController extends Controller
 {
-    protected $service;
+    protected $planService;
 
-    public function __construct(PlanSepareService $service)
+    public function __construct(PlanSepareService $planService)
     {
-        $this->service = $service;
+        $this->planService = $planService;
     }
 
     /**
-     * Registrar un nuevo abono a un plan separe
+     * 💵 Registrar nuevo abono
      */
-    public function store(StoreAbonoPlanSepareRequest $request, $planId)
+    public function store(Request $request, int $planId)
     {
+        $request->validate([
+            'valor' => 'required|numeric|min:1000',
+            'forma_pago_id' => 'required|integer|exists:formas_pago,id',
+        ]);
+
+        $usuarioId = Auth::id();
+
         try {
-            $data = $request->validated();
-            $usuarioId = auth('sanctum')->id() ?? auth()->id() ?? 1;
-
-            $abono = $this->service->registrarAbono($planId, $data, $usuarioId);
-
+            $resultado = $this->planService->registrarAbono($planId, $request->all(), $usuarioId);
             return response()->json([
                 'message' => 'Abono registrado correctamente.',
-                'data' => new AbonoPlanSepareResource($abono)
+                'data' => $resultado,
             ], 201);
-
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return response()->json([
-                'message' => $e->getMessage()
-            ], 422);
+                'message' => 'Error al registrar el abono.',
+                'error' => $e->getMessage(),
+            ], 500);
         }
     }
 
-
     /**
-     * Listar todos los abonos de un plan
+     * 📋 Listar abonos de un plan
      */
-    public function index($planId)
+    public function index(int $planId)
     {
-        $abonos = $this->service->obtenerAbonos($planId);
-        return AbonoPlanSepareResource::collection($abonos);
+        $abonos = AbonoPlanSepare::where('plan_separe_id', $planId)
+            ->orderByDesc('created_at')
+            ->get();
+
+        return response()->json($abonos);
     }
 }

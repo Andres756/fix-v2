@@ -143,23 +143,27 @@ Route::prefix('inventario')->group(function () {
 });
 
 // ── Plan Separe
-Route::prefix('plan-separe')->group(function () {
-    // 🧾 Planes principales
+Route::prefix('plan-separe')->middleware(['auth:sanctum'])->group(function () {
     Route::get('/', [PlanSepareController::class, 'index']);
     Route::post('/', [PlanSepareController::class, 'store']);
-    Route::get('{id}', [PlanSepareController::class, 'show']);
+    Route::get('/{id}', [PlanSepareController::class, 'show']);
+    Route::patch('/{id}/anular', [PlanSepareController::class, 'anular']);
 
-    // 💰 Abonos
-    Route::get('{id}/abonos', [AbonoController::class, 'index']);
-    Route::post('{id}/abono', [AbonoController::class, 'store']);
+    // Abonos
+    Route::get('/{id}/abonos', [AbonoController::class, 'index']);
+    Route::post('/{id}/abonos', [AbonoController::class, 'store']);
 
-    // 🔄 Cambios de estado y devoluciones
-    Route::patch('{id}/estado', [EstadoController::class, 'update']);
+    // Devoluciones
+    Route::get('/{id}/devoluciones', [DevolucionController::class, 'index']);
+    Route::post('/{id}/devoluciones', [DevolucionController::class, 'store']);
 
-    // 💸 Devoluciones parciales (REST completo)
-    // ── Route::get('{id}/devoluciones', [DevolucionController::class, 'index']);
-    // ── Route::post('{id}/devoluciones', [DevolucionController::class, 'store']);
+    Route::patch('/{id}/reasignar', [PlanSepareController::class, 'reasignar']);
+
+    // Estado manual
+    Route::patch('/{id}/estado', [EstadoController::class, 'update']);
+    Route::patch('/{id}/estado/devolver', [EstadoController::class, 'devolver']);
 });
+
 
 // ── FACTURACION
 Route::prefix('facturacion')->middleware(['auth:sanctum'])->group(function () {

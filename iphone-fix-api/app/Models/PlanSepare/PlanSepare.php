@@ -24,6 +24,7 @@ class PlanSepare extends Model
         'abono_inicial',
         'monto_devuelto',
         'estado_id',
+        'factura_id',
         'usuario_id',
         'observaciones'
     ];
@@ -62,6 +63,11 @@ class PlanSepare extends Model
     public function usuario()
     {
         return $this->belongsTo(User::class, 'usuario_id');
+    }
+
+    public function factura()
+    {
+        return $this->belongsTo(\App\Models\Facturacion\Factura::class, 'factura_id');
     }
 
     // Método auxiliar para obtener total abonado
