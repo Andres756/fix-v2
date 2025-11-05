@@ -123,6 +123,56 @@
                 </div>
               </div>
 
+              <!-- 🧾 Detalles de la factura -->
+              <div v-if="facturaInfo?.detalles?.length" class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                  Seleccione los ítems a anular (opcional)
+                </label>
+                <div class="overflow-x-auto border rounded-lg">
+                  <table class="min-w-full text-sm">
+                    <thead class="bg-gray-50 text-gray-600">
+                      <tr>
+                        <th class="px-4 py-2 text-left w-12">
+                          <input
+                            type="checkbox"
+                            v-model="selectAll"
+                            @change="toggleSelectAll"
+                            class="w-4 h-4 text-red-600 border-gray-300 rounded"
+                          />
+                        </th>
+                        <th class="px-4 py-2 text-left">Descripción</th>
+                        <th class="px-4 py-2 text-right">Cantidad</th>
+                        <th class="px-4 py-2 text-right">Precio</th>
+                        <th class="px-4 py-2 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                      <tr v-for="detalle in facturaInfo.detalles" :key="detalle.id">
+                        <td class="px-4 py-2">
+                          <input
+                            type="checkbox"
+                            v-model="selectedDetalles"
+                            :value="detalle.id"
+                            class="w-4 h-4 text-red-600 border-gray-300 rounded"
+                          />
+                        </td>
+                        <td class="px-4 py-2 text-gray-800">
+                          {{ detalle.descripcion || detalle.producto?.nombre || '—' }}
+                        </td>
+                        <td class="px-4 py-2 text-right">{{ detalle.cantidad }}</td>
+                        <td class="px-4 py-2 text-right">{{ formatMoney(detalle.precio_unitario || 0) }}</td>
+                        <td class="px-4 py-2 text-right font-medium text-gray-900">
+                          {{ formatMoney((detalle.cantidad || 1) * (detalle.precio_unitario || 0)) }}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p class="mt-2 text-xs text-gray-500">
+                  Si no seleccionas ítems, se anulará la factura completa.
+                </p>
+              </div>
+
               <!-- Motivo de anulación -->
               <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">
@@ -206,7 +256,7 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
 import { toast } from 'vue3-toastify'
-import { getFactura, verificarAnulacion, anularFactura } from '../api/facturacion'
+import { getFactura, verificarAnulacion, anularFacturaAvanzado } from '../api/facturacion'
 import type { Factura } from '../types/factura'
 
 // Props
@@ -237,17 +287,37 @@ const form = reactive({
   confirmado: false
 })
 
-// Helpers
+// ✅ Estados para manejar selección de detalles
+const selectedDetalles = ref<number[]>([])
+const selectAll = ref(false)
+
+// ✅ Marcar o desmarcar todos
+const toggleSelectAll = () => {
+  if (!facturaInfo.value?.detalles) return
+  if (selectAll.value) {
+    selectedDetalles.value = facturaInfo.value.detalles.map(d => d.id)
+  } else {
+    selectedDetalles.value = []
+  }
+}
+
+// 🔁 Actualizar selectAll cuando cambian selecciones
+watch(selectedDetalles, (val) => {
+  if (!facturaInfo.value?.detalles) return
+  selectAll.value = val.length === facturaInfo.value.detalles.length
+})
+
+// 💰 Formato de dinero
 const formatMoney = (amount: number): string => {
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
     currency: 'COP',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
-  }).format(amount)
+  }).format(amount || 0)
 }
 
-// Verificar si se puede anular
+// ✅ Verificar si se puede anular
 const verifyAnulacion = async () => {
   if (!props.facturaId) return
   
@@ -275,53 +345,76 @@ const verifyAnulacion = async () => {
   }
 }
 
-// Manejar envío del formulario
+// ✅ Enviar anulación avanzada
 const handleSubmit = async () => {
   if (!form.motivo) {
     toast.warning('Debe seleccionar un motivo de anulación')
     return
   }
-  
+
   if (!form.confirmado) {
     toast.warning('Debe confirmar que desea anular la factura')
     return
   }
-  
+
   try {
     isLoading.value = true
-    
-    await anularFactura(props.facturaId!, {
+
+    // 🧩 Construcción del payload para anulación avanzada
+    const payload = {
       motivo: form.motivo,
+      detalles: selectedDetalles.value,
+      acciones: {
+        repuestos_internos: 'reutilizables',
+        repuestos_externos: 'mantener',
+        comision: 'mantener_pago'
+      },
       observaciones: form.observaciones || undefined
-    })
-    
-    toast.success('Factura anulada exitosamente')
-    emit('success')
-    handleClose()
+    }
+
+    console.log('🟢 Enviando payload:', payload)
+
+    const response = await anularFacturaAvanzado(props.facturaId!, payload)
+
+    // ✅ Mostrar mensaje y cerrar modal con retraso breve
+    toast.success(response?.data?.message || response?.message || 'Anulación procesada correctamente')
+
+    setTimeout(() => {
+      emit('success')
+      handleClose()
+    }, 400)
+
   } catch (error: any) {
-    console.error('Error anulando factura:', error)
-    toast.error(error.message || 'Error al anular la factura')
+    console.error('❌ Error en anulación avanzada:', error)
+    const msg =
+      error?.response?.data?.message ||
+      error?.message ||
+      'Error al procesar la anulación'
+    toast.error(msg)
   } finally {
     isLoading.value = false
   }
 }
 
-// Cerrar modal
+// ✅ Cerrar modal y limpiar todo
 const handleClose = () => {
   if (isLoading.value) return
-  
-  // Reset form
+
   form.motivo = ''
   form.observaciones = ''
   form.confirmado = false
+
+  selectedDetalles.value = []
+  selectAll.value = false
+
+  facturaInfo.value = null
   canAnular.value = false
   errorMessage.value = ''
-  facturaInfo.value = null
-  
+
   emit('close')
 }
 
-// Watch para cuando se abre el modal
+// 🔁 Reaccionar cuando se abre la modal
 watch(() => props.open, async (isOpen) => {
   if (isOpen && props.facturaId) {
     await verifyAnulacion()
