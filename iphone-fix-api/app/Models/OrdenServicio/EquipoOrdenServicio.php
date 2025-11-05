@@ -54,7 +54,7 @@ class EquipoOrdenServicio extends Model
         return $this->belongsTo(User::class, 'tecnico_asignado');
     }
 
-        public function tareas()
+    public function tareas()
     {
         // clave foránea en tareas_equipo = equipo_os_id
         return $this->hasMany(TareaEquipo::class, 'equipo_os_id');
@@ -78,4 +78,5 @@ class EquipoOrdenServicio extends Model
             'id'
         );
     }
+
 }

@@ -27,22 +27,26 @@ export interface Comision {
 
 export interface EquipoAsignado {
   id: number
+  orden_id: number
+  cliente_id: number
   marca: string
   modelo: string
-  imei_serial: string
   estado: string
+  imei_serial?: string
   fecha_estimada_entrega?: string
-  
-  // Información del cliente/orden
-  cliente: string
-  orden_codigo: string
-  
-  // Tareas (sin costos)
-  tareas: Tarea[]
-  resumen_tareas: ResumenTareas
-  
-  // Comisión (solo si está habilitada)
-  comision: Comision
+  comision?: {
+    habilitada: boolean
+    tipo: string
+    valor: number
+    ganancia_estimada: number
+  }
+  resumen_tareas: {
+    total: number
+    pendientes: number
+    en_proceso: number
+    completadas: number
+  }
+  tareas?: any[]
 }
 
 export interface DashboardStats {
@@ -90,3 +94,4 @@ export interface HistorialTarea {
     nombre: string
   }
 }
+

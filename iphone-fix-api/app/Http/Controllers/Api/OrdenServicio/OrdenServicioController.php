@@ -17,11 +17,25 @@ class OrdenServicioController extends Controller
      */
     public function index($clienteId)
     {
-        $cliente = Cliente::findOrFail($clienteId);
+        $ordenes = \App\Models\OrdenServicio\OrdenServicio::where('cliente_id', $clienteId)
+            ->with(['equipos.tareas', 'equipos.repuestosInventario', 'equipos.repuestosExternos'])
+            ->latest('id')
+            ->get();
 
-        $ordenes = $cliente->ordenesServicio()->with('equipos')->get();
+        // Calcular totales para cada equipo dentro de las órdenes
+        $ordenes->each(function ($orden) {
+            $orden->equipos->transform(function ($equipo) {
+                $costoActividades = $equipo->tareas->sum('costo_aplicado');
+                $costoRepuestos   = $equipo->repuestosInventario->sum('costo_total');
+                $costoExternos    = $equipo->repuestosExternos->sum('costo_total');
+                $costoReal        = $costoActividades + $costoRepuestos + $costoExternos;
 
-        return OrdenServicioResource::collection($ordenes);
+                $equipo->precio_total = $costoReal;
+                return $equipo;
+            });
+        });
+
+        return response()->json(['data' => $ordenes]);
     }
 
     /**

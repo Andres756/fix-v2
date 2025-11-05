@@ -8,6 +8,9 @@ use App\Http\Requests\OrdenServicio\Equipo\UpdateEquipoRequest;
 use App\Http\Resources\OrdenServicio\EquipoOrdenServicioResource;
 use App\Models\OrdenServicio\OrdenServicio;
 use App\Models\OrdenServicio\EquipoOrdenServicio;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+
 
 class EquipoOrdenServicioController extends Controller
 {
@@ -21,7 +24,7 @@ class EquipoOrdenServicioController extends Controller
 
         // Cargar relaciones necesarias
         $equipos = $orden->equipos()
-            ->with(['estado', 'tareas', 'repuestosInventario', 'repuestosExternos'])
+            ->with(['tareas', 'repuestosInventario', 'repuestosExternos'])
             ->latest('id')
             ->get();
 
@@ -82,7 +85,16 @@ class EquipoOrdenServicioController extends Controller
             ->whereHas('orden', function ($q) use ($clienteId) {
                 $q->where('cliente_id', $clienteId);
             })
+            ->with(['tareas', 'repuestosInventario', 'repuestosExternos'])
             ->findOrFail($equipoId);
+
+        // Calcular el total como en index()
+        $costoActividades = $equipo->tareas->sum('costo_aplicado');
+        $costoRepuestos   = $equipo->repuestosInventario->sum('costo_total');
+        $costoExternos    = $equipo->repuestosExternos->sum('costo_total');
+        $costoReal        = $costoActividades + $costoRepuestos + $costoExternos;
+
+        $equipo->precio_total = $costoReal;
 
         return new EquipoOrdenServicioResource($equipo);
     }
@@ -93,12 +105,27 @@ class EquipoOrdenServicioController extends Controller
     public function update(UpdateEquipoRequest $request, $clienteId, $ordenId, $equipoId)
     {
         $equipo = EquipoOrdenServicio::where('orden_id', $ordenId)
-            ->whereHas('orden', function ($q) use ($clienteId) {
-                $q->where('cliente_id', $clienteId);
-            })
+            ->whereHas('orden', fn($q) => $q->where('cliente_id', $clienteId))
+            ->with('tareas')
             ->findOrFail($equipoId);
 
         $data = $request->validated();
+
+        // 🔸 Si intenta marcar como "finalizado", validamos tareas
+        if (isset($data['estado']) && strtolower($data['estado']) === 'finalizado') {
+            $totalTareas = $equipo->tareas->count();
+            $tareasCompletas = $equipo->tareas->where('estado', 'completada')->count();
+
+            if ($totalTareas > 0 && $tareasCompletas < $totalTareas) {
+                return response()->json([
+                    'message' => 'No se puede finalizar el equipo porque tiene tareas pendientes.',
+                    'tareas_pendientes' => $totalTareas - $tareasCompletas,
+                ], 422);
+            }
+
+            // ✅ Si no hay tareas o todas completas, marcamos finalizado
+            $data['fecha_finalizacion'] = now();
+        }
 
         if (empty($data['comision_habilitada'])) {
             $data['tipo_comision']  = null;
@@ -151,6 +178,38 @@ class EquipoOrdenServicioController extends Controller
             'estado_presupuesto' => $diferencia > 0 
                                     ? 'superado' 
                                     : ($diferencia < 0 ? 'por_debajo' : 'exacto'),
+        ]);
+    }
+
+    public function actualizarEstado(Request $request, $equipoId)
+    {
+        $request->validate([
+            'estado' => 'required|string',
+        ]);
+
+        $equipo = \App\Models\OrdenServicio\EquipoOrdenServicio::findOrFail($equipoId);
+
+        // ✅ Validar que todas las tareas estén completadas si se marca como finalizado
+        if ($request->estado === 'finalizado') {
+            $tareasIncompletas = $equipo->tareas()->where('estado', '!=', 'completada')->count();
+            if ($tareasIncompletas > 0) {
+                return response()->json([
+                    'message' => 'No se puede finalizar el equipo: aún hay tareas pendientes.'
+                ], 422);
+            }
+        }
+
+        $equipo->estado = $request->estado;
+        $equipo->save();
+
+        Log::info('✅ Estado actualizado', [
+            'equipo_id' => $equipo->id,
+            'nuevo_estado' => $equipo->estado
+        ]);
+
+        return response()->json([
+            'message' => 'Estado actualizado correctamente.',
+            'equipo' => $equipo
         ]);
     }
 

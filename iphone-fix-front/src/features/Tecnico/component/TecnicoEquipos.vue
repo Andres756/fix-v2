@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h3 class="text-xl font-semibold mb-2">Equipos Asignados</h3>
+    <h3 class="text-xl font-semibold mb-2">Equipos Asignados pruebas</h3>
     <div v-if="loading">Cargando equipos...</div>
     <div v-else-if="error" class="text-red-600">{{ error }}</div>
     <div v-else>

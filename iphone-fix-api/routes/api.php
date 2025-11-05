@@ -213,6 +213,8 @@ Route::get('ordenes', [OrdenServicioController::class, 'listAll']);
 // Calcular costos
 Route::get('equipos/{equipoId}/costos', [EquipoOrdenServicioController::class, 'costos']);
 
+Route::patch('equipos/{equipoId}/estado', [EquipoOrdenServicioController::class, 'actualizarEstado']);
+
 // ── Clientes
 Route::apiResource('clientes', ClienteController::class)
     ->parameters(['clientes' => 'cliente']);

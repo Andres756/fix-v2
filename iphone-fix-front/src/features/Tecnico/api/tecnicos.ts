@@ -51,3 +51,12 @@ export async function fetchHistorialTarea(
   const { data } = await http.get(`/tecnicos/${tecnicoId}/tareas/${tareaId}/historial`)
   return data
 }
+
+// Actualizar estado de equipo (nuevo endpoint simplificado)
+export async function actualizarEstadoEquipo(equipoId: number, estado: string) {
+  const { data } = await http.patch(
+    `${import.meta.env.VITE_API_BASE_URL}/equipos/${equipoId}/estado`,
+    { estado }
+  )
+  return data
+}

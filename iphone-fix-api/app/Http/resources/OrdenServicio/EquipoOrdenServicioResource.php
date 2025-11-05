@@ -51,14 +51,7 @@ class EquipoOrdenServicioResource extends JsonResource
             'valor_comision'         => $this->valor_comision !== null ? (float)$this->valor_comision : null,
 
             // Estado (relación)
-            'estado'                 => $this->whenLoaded('estado', function () {
-                return [
-                    'id'     => $this->estado->id,
-                    'codigo' => $this->estado->codigo ?? null,
-                    'nombre' => $this->estado->nombre ?? 'Pendiente',
-                    'color'  => $this->estado->color ?? null,
-                ];
-            }, $this->estado), // si no está cargado, muestra el valor crudo
+            'estado' => $this->estado ?? 'Pendiente',
 
             // Nuevos campos
             'precio_total'           => (float)$precioTotal,
