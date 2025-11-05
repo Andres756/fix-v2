@@ -354,6 +354,39 @@ class FacturacionController extends Controller
         }
     }
 
+    public function verificarAnulacion($id)
+    {
+        $factura = Factura::find($id);
+
+        if (!$factura) {
+            return response()->json([
+                'puede_anular' => false,
+                'mensaje' => 'Factura no encontrada.'
+            ], 404);
+        }
+
+        // 🚦 Ejemplo de lógica: no permitir anular si ya está anulada o entregada
+        if ($factura->estado === 'anulada') {
+            return response()->json([
+                'puede_anular' => false,
+                'mensaje' => 'La factura ya está anulada.'
+            ], 200);
+        }
+
+        if ($factura->estado === 'entregada') {
+            return response()->json([
+                'puede_anular' => false,
+                'mensaje' => 'No se puede anular una factura entregada.'
+            ], 200);
+        }
+
+        // Si pasa todas las validaciones
+        return response()->json([
+            'puede_anular' => true,
+            'mensaje' => 'La factura puede ser anulada.'
+        ], 200);
+    }
+
     /**
      *  Entrega
      */
