@@ -482,12 +482,11 @@ class FacturacionService
     }
 
     /**
-     * Listado y reportes desde la vista vw_facturas_resumen
+     * 📄 Listado de facturas (recalcula saldo y total pagado)
      */
     public function listarResumen(array $filters = [])
     {
-        // 🧩 Consulta directa con Eloquent (ya no con DB::table)
-        $query = \App\Models\Facturacion\Factura::query()
+        $query = Factura::query()
             ->with(['cliente', 'usuario', 'formaPago', 'estado', 'tipoVenta'])
             ->orderByDesc('fecha_emision');
 
@@ -501,7 +500,6 @@ class FacturacionService
         }
 
         if (!empty($filters['estado'])) {
-            // puedes filtrar por nombre, código o ID según lo que devuelvas del frontend
             $query->whereHas('estado', function ($q) use ($filters) {
                 $q->where('codigo', $filters['estado'])
                 ->orWhere('nombre', $filters['estado']);
@@ -520,7 +518,26 @@ class FacturacionService
             $query->whereDate('fecha_emision', '<=', $filters['hasta']);
         }
 
-        // 📊 Paginación con Eloquent (mantiene los casts y relaciones)
-        return $query->paginate($filters['per_page'] ?? 15);
+        // 📊 Paginación
+        $facturas = $query->paginate($filters['per_page'] ?? 15);
+
+        // 🔹 Recalcular totales haciendo NUEVA QUERY (no usar colección)
+        $facturas->setCollection(
+            $facturas->getCollection()->map(function ($factura) {
+                // 👇 QUERY FRESCA - CON PARÉNTESIS
+                $totalPagado = $factura->pagos()
+                    ->where('estado', '!=', 'anulado')
+                    ->sum('valor');
+
+                $saldoPendiente = max($factura->total - $totalPagado, 0);
+
+                $factura->total_pagado = $totalPagado;
+                $factura->saldo_pendiente = $saldoPendiente;
+
+                return $factura;
+            })
+        );
+
+        return $facturas;
     }
 }

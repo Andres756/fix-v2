@@ -102,12 +102,18 @@ class Factura extends Model
 
     public function getTotalPagadoAttribute()
     {
-        return $this->pagos()->sum('valor');
+        return $this->pagos()
+            ->where('estado', '!=', 'anulado')  // 👈 AGREGA ESTE FILTRO
+            ->sum('valor');
     }
 
     public function getSaldoPendienteAttribute()
     {
-        return max(0, $this->total - $this->getTotalPagadoAttribute());
+        $totalPagado = $this->pagos()
+            ->where('estado', '!=', 'anulado')  // 👈 AGREGA ESTE FILTRO
+            ->sum('valor');
+        
+        return max(0, $this->total - $totalPagado);
     }
 
     protected function fechaEmision(): Attribute

@@ -221,6 +221,7 @@
       :open="showDetalleModal"
       :factura-id="selectedFacturaId"
       @close="showDetalleModal = false"
+      @updated="onFacturaActualizada"
     />
 
     <!-- Paginación -->
@@ -369,15 +370,18 @@ const visiblePages = computed(() => {
 const loadFacturas = async () => {
   try {
     isLoading.value = true
-    
+
     const response = await fetchFacturas({
       ...filters,
       page: currentPage.value,
       per_page: 20
     })
+
+    // 🔥 CREA UN NUEVO ARRAY para forzar reactividad
+    facturas.value = (response.data || []).map(f => ({ ...f }))
+    meta.value = { ...response.meta }
     
-    facturas.value = response.data || []
-    meta.value = response.meta
+    console.log('✅ Facturas actualizadas:', facturas.value) // Debug
   } catch (error) {
     console.error('Error loading facturas:', error)
     toast.error('Error al cargar las facturas')
@@ -474,6 +478,11 @@ const onPagoRegistrado = () => {
 }
 
 const onFacturaAnulada = () => {
+  loadFacturas()
+  loadResumen()
+}
+
+const onFacturaActualizada = () => {
   loadFacturas()
   loadResumen()
 }

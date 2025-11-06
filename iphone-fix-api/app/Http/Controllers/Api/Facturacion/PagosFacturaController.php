@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Facturacion\Factura;
 use App\Models\Facturacion\PagoFactura;
 use App\Models\Facturacion\FacturaAuditoria;
+use App\Models\Facturacion\MotivoAnulacionPago;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -16,34 +17,28 @@ class PagosFacturaController extends Controller
     /**
      * 📋 Listar pagos de una factura
      */
-    public function index(int $facturaId)
+    public function index($facturaId)
     {
-        $factura = Factura::with(['pagos.formaPago', 'estado'])->find($facturaId);
-
-        if (!$factura) {
-            return response()->json([
-                'message' => 'Factura no encontrada.'
-            ], 404);
-        }
+    $pagos = PagoFactura::with(['formaPago', 'usuario', 'motivoAnulacion'])
+        ->where('factura_id', $facturaId)
+        ->orderBy('id', 'desc')
+        ->get()
+        ->map(function ($pago) {
+            return [
+                'id' => $pago->id,
+                'fecha' => optional($pago->created_at)->format('Y-m-d H:i'),
+                'valor' => (float) $pago->valor,
+                'forma_pago' => $pago->formaPago?->nombre ?? '—',
+                'usuario' => $pago->usuario?->name ?? '—',
+                'estado' => $pago->estado,
+                'motivo_anulacion' => $pago->motivoAnulacion?->nombre ?? null,
+                'observaciones' => $pago->observaciones,
+            ];
+        });
 
         return response()->json([
-            'factura_id' => $factura->id,
-            'codigo' => $factura->codigo,
-            'estado' => $factura->estado?->codigo ?? 'DESCONOCIDO',
-            'total' => $factura->total ?? 0,
-            'total_pagado' => $factura->total_pagado ?? $factura->pagos->sum('valor'),
-            'saldo_pendiente' => $factura->saldo_pendiente ?? max(0, ($factura->total ?? 0) - $factura->pagos->sum('valor')),
-            'pagos' => $factura->pagos->map(function ($pago) {
-                return [
-                    'id' => $pago->id,
-                    'forma_pago' => $pago->formaPago->nombre ?? null,
-                    'valor' => $pago->valor,
-                    'referencia_externa' => $pago->referencia_externa,
-                    'observaciones' => $pago->observaciones,
-                    'fecha' => $pago->created_at?->format('Y-m-d H:i:s'),
-                    'usuario_id' => $pago->usuario_id,
-                ];
-            }),
+            'message' => 'Pagos de la factura obtenidos correctamente',
+            'data' => $pagos,
         ]);
     }
 
@@ -128,4 +123,92 @@ class PagosFacturaController extends Controller
             'vueltas' => $vueltas,
         ]);
     }
+
+    public function motivosAnulacion()
+    {
+        $motivos = MotivoAnulacionPago::where('activo', 1)
+            ->orderBy('nombre')
+            ->get(['id', 'nombre']);
+
+        return response()->json([
+            'message' => 'Motivos de anulación obtenidos correctamente',
+            'data' => $motivos
+        ]);
+    }
+
+    /**
+     * ❌ Anular un pago de factura
+     */
+    public function anular(Request $request, $id)
+    {
+        try {
+            $request->validate([
+                'motivo_anulacion_id' => 'required|exists:motivos_anulacion_pagos,id',
+            ]);
+
+            // 🔹 Buscar el pago junto con su factura
+            $pago = \App\Models\Facturacion\PagoFactura::with('factura')->findOrFail($id);
+
+            if ($pago->estado === 'anulado') {
+                return response()->json([
+                    'message' => 'El pago ya se encuentra anulado.',
+                ], 400);
+            }
+
+            // 🔹 1. Anular el pago
+            $pago->update([
+                'estado' => 'anulado',
+                'motivo_anulacion_id' => $request->motivo_anulacion_id,
+                'anulado_por_id' => auth()->id(),
+                'anulado_at' => now(),
+            ]);
+
+            // 🔹 2. Obtener la factura asociada
+            $factura = $pago->factura;
+            if (!$factura) {
+                return response()->json([
+                    'message' => 'No se encontró la factura asociada a este pago.',
+                ], 404);
+            }
+
+            // 🔹 3. Calcular pagos activos (no anulados)
+            $totalPagado = $factura->pagos()
+                ->where('estado', '!=', 'anulado')
+                ->sum('valor');
+
+            // 🔹 4. Calcular saldo pendiente
+            $saldoPendiente = max($factura->total - $totalPagado, 0);
+
+            // 🔹 5. Cambiar estado a "Pendiente" (ID = 1)
+            $factura->estado_id = 1;
+            $factura->save();
+
+            // 🔹 6. Devolver respuesta
+            return response()->json([
+                'message' => 'Pago anulado correctamente',
+                'data' => [
+                    'pago' => [
+                        'id' => $pago->id,
+                        'estado' => $pago->estado,
+                        'motivo_anulacion' => $pago->motivoAnulacion?->nombre,
+                    ],
+                    'factura' => [
+                        'id' => $factura->id,
+                        'estado_id' => $factura->estado_id,
+                        'estado' => $factura->estado->nombre ?? 'Pendiente',
+                        'total' => $factura->total,
+                        'total_pagado' => $totalPagado,
+                        'saldo_pendiente' => $saldoPendiente,
+                    ],
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Error al anular el pago',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+
 }

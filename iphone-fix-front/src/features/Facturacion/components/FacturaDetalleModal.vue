@@ -77,21 +77,63 @@
                   </thead>
                   <tbody>
                     <tr v-for="p in pagos" :key="p.id" class="border-t border-gray-100">
-                      <td class="px-4 py-2">{{ formatDate(p.fecha_pago) }}</td>
-                      <td class="px-4 py-2">{{ p.forma_pago?.nombre || '—' }}</td>
-                      <td class="px-4 py-2 text-right">{{ formatMoney(p.monto) }}</td>
+                      <td class="px-4 py-2">{{ formatDate(p.fecha) }}</td>
+                      <td class="px-4 py-2">{{ p.forma_pago || '—' }}</td>
+                      <td class="px-4 py-2 text-right">{{ formatMoney(p.valor) }}</td>
                       <td class="px-4 py-2 text-center">
+                        <span
+                          v-if="p.estado === 'anulado'"
+                          class="text-red-600 font-semibold"
+                        >
+                          Anulado
+                        </span>
                         <button
-                          @click="anularPago(p.id)"
+                          v-else
+                          @click="abrirModalAnulacion(p)"
                           class="text-red-600 hover:text-red-800 text-xs font-medium"
-                          v-if="!p.anulado"
                         >
                           Anular
                         </button>
-                        <span v-else class="text-gray-400 text-xs">Anulado</span>
                       </td>
                     </tr>
                   </tbody>
+                  <!-- Modal de anulación -->
+                  <div
+                    v-if="modalAnulacion"
+                    class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]"
+                  >
+                    <div class="bg-white rounded-xl shadow-lg w-full max-w-sm p-6">
+                      <h3 class="text-lg font-semibold mb-4">Anular pago</h3>
+
+                      <label class="block text-sm font-medium mb-2">Motivo de anulación</label>
+                      <select
+                        v-model="motivoSeleccionado"
+                        class="w-full border rounded-lg px-3 py-2 mb-4"
+                      >
+                        <option disabled value="">Selecciona un motivo</option>
+                        <option v-for="m in motivos" :key="m.id" :value="m.id">
+                          {{ m.nombre }}
+                        </option>
+                      </select>
+
+                      <div class="flex justify-end gap-3">
+                        <button
+                          @click="modalAnulacion = false"
+                          class="px-4 py-2 rounded-lg bg-gray-200 text-gray-800"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          @click="confirmarAnulacion"
+                          class="px-4 py-2 rounded-lg bg-red-600 text-white"
+                          :disabled="!motivoSeleccionado"
+                        >
+                          Confirmar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
                 </table>
               </div>
               <div v-else class="text-center text-sm text-gray-500 py-6">
@@ -103,43 +145,65 @@
       </div>
     </transition>
   </Teleport>
+
+  
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { toast } from 'vue3-toastify'
-import { getFactura, fetchPagosFactura } from '../api/facturacion'
+import { getFactura, fetchPagosFactura, fetchMotivosAnulacion, anularPagoFactura } from '../api/facturacion'
 
+
+// Props
 const props = defineProps<{
   open: boolean
   facturaId: number | null
 }>()
 
-const emit = defineEmits<{ (e: 'close'): void }>()
+const emit = defineEmits<{ 
+  (e: 'close'): void
+  (e: 'updated'): void // 👈 Nuevo evento
+}>()
 
+// Refs
 const factura = ref<any>(null)
 const pagos = ref<any[]>([])
 const loading = ref(false)
 
+// 🔻 Modal de anulación
+const modalAnulacion = ref(false)
+const motivos = ref<any[]>([])
+const motivoSeleccionado = ref<number | null>(null)
+const pagoActual = ref<any>(null)
+
+// 🧾 Formatos
 const formatMoney = (val: number) =>
-  new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(val || 0)
+  new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    minimumFractionDigits: 0
+  }).format(val || 0)
 
 const formatDate = (dateStr: string) =>
   dateStr ? new Date(dateStr).toLocaleDateString('es-CO') : '—'
 
+// 🔄 Reaccionar a apertura del modal principal
 watch(() => props.open, async (isOpen) => {
   if (isOpen && props.facturaId) {
     await cargarFactura(props.facturaId)
   }
 })
 
+// 📦 Cargar factura y pagos
 async function cargarFactura(id: number) {
   try {
     loading.value = true
     const data = await getFactura(id)
     factura.value = data
+
     const pagosData = await fetchPagosFactura(id)
-    pagos.value = pagosData.pagos || []
+    pagos.value = pagosData.data || []
   } catch (e: any) {
     toast.error('Error cargando detalles de la factura')
     console.error(e)
@@ -148,8 +212,38 @@ async function cargarFactura(id: number) {
   }
 }
 
-// 🧾 Anular pago (futura acción, backend pendiente)
-async function anularPago(id: number) {
-  toast.info(`Función de anular pago pendiente (ID: ${id})`)
+// 💬 Abrir modal de anulación
+async function abrirModalAnulacion(pago: any) {
+  pagoActual.value = pago
+  motivoSeleccionado.value = null
+  modalAnulacion.value = true
+
+  // Cargar motivos solo una vez
+  if (!motivos.value.length) {
+    try {
+      const res = await fetchMotivosAnulacion()
+      motivos.value = res.data
+    } catch (err) {
+      toast.error('Error cargando motivos de anulación')
+      console.error(err)
+    }
+  }
 }
+
+async function confirmarAnulacion() {
+  if (!pagoActual.value || !motivoSeleccionado.value) return
+
+  try {
+    await anularPagoFactura(pagoActual.value.id, motivoSeleccionado.value)
+    toast.success('Pago anulado correctamente')
+    modalAnulacion.value = false
+    await cargarFactura(factura.value.id) // refresca el modal
+    emit('updated')  // 👈 AGREGA ESTA LÍNEA
+  } catch (error: any) {
+    toast.error('Error al anular el pago')
+    console.error(error)
+  }
+}
+
 </script>
+

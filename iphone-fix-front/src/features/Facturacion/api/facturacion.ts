@@ -180,13 +180,8 @@ export async function convertirPrefactura(
  * Listar pagos de una factura
  */
 export async function fetchPagosFactura(facturaId: number): Promise<{
-  factura_id: number
-  codigo: string
-  estado: string
-  total: number
-  total_pagado: number
-  saldo_pendiente: number
-  pagos: PagoFactura[]
+  message: string
+  data: PagoFactura[]
 }> {
   try {
     const response = await http.get(`/facturacion/facturas/${facturaId}/pagos`)
@@ -437,3 +432,17 @@ export async function fetchEquiposDeOrden(clienteId: number, ordenId: number) {
   return res.data || []
 }
 
+export async function fetchMotivosAnulacion(): Promise<{ data: any[] }> {
+  const res = await http.get('/facturacion/pagos/motivos-anulacion')
+  return res.data
+}
+
+/**
+ * Anular un pago de factura
+ */
+export async function anularPagoFactura(pagoId: number, motivoId: number) {
+  const res = await http.put(`/facturacion/pagos/${pagoId}/anular`, {
+    motivo_anulacion_id: motivoId,
+  })
+  return res.data
+}

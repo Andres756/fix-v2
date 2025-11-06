@@ -257,6 +257,9 @@ export interface FacturaListResponse {
     last_page: number
     per_page: number
     total: number
+        // 🔹 Campos calculados dinámicamente por el backend
+    total_pagado?: number
+    saldo_pendiente?: number
   }
 }
 

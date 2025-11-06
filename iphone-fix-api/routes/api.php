@@ -182,6 +182,8 @@ Route::prefix('facturacion')->middleware(['auth:sanctum'])->group(function () {
     // 💰 Pagos asociados a factura
     Route::get('facturas/{id}/pagos', [PagosFacturaController::class, 'index']);  // Listar pagos de factura
     Route::post('facturas/{id}/pagos', [PagosFacturaController::class, 'store']); // Registrar pago o abono
+    Route::put('pagos/{id}/anular', [PagosFacturaController::class, 'anular']); // ✅ plural aquí
+    Route::get('pagos/motivos-anulacion', [PagosFacturaController::class, 'motivosAnulacion']);
 
     Route::get('facturas/{id}/ticket', [FacturacionController::class, 'generarTicket']) ->middleware('auth:sanctum');
     Route::get('facturacion/facturas/{id}/imprimir', [FacturacionController::class, 'obtenerUrlImpresion']) ->middleware('auth:sanctum');

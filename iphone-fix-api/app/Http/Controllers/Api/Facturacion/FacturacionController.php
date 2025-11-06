@@ -225,7 +225,7 @@ class FacturacionController extends Controller
             $param->update(['consecutivo_actual' => $nuevoConsec]);
         }
 
-        \App\Models\Facturacion\FacturaAuditoria::create([
+        FacturaAuditoria::create([
             'factura_id' => $factura->id,
             'usuario_id' => $usuarioId,
             'accion'     => 'CREAR',
@@ -251,22 +251,47 @@ class FacturacionController extends Controller
     }
 
     /**
-     * 🧾 Mostrar una factura específica
+     * 📄 Mostrar detalle de una factura (con saldo recalculado)
      */
     public function show($id)
     {
-        try {
-            $factura = \App\Models\Facturacion\Factura::with([
-                'cliente', 'usuario', 'estado', 'formaPago', 'detalles', 'pagos', 'auditorias'
-            ])->findOrFail($id);
+        // 🔹 Cargar factura con sus relaciones
+        $factura = \App\Models\Facturacion\Factura::with([
+            'cliente',
+            'usuario',
+            'estado',
+            'detalles',
+            'pagos.formaPago',
+            'pagos.usuario'
+        ])->findOrFail($id);
 
-            return response()->json($factura);
-        } catch (\Throwable $e) {
-            return response()->json([
-                'message' => 'No se pudo obtener la factura',
-                'error' => $e->getMessage(),
-            ], 404);
-        }
+        // 🔹 Calcular total pagado (solo pagos activos)
+        $totalPagado = $factura->pagos()
+            ->where('estado', '!=', 'anulado')
+            ->sum('valor');
+
+        // 🔹 Calcular saldo pendiente
+        $saldoPendiente = max($factura->total - $totalPagado, 0);
+
+        // 🔹 Asignar campos dinámicos (sin tocar base de datos)
+        $factura->total_pagado = $totalPagado;
+        $factura->saldo_pendiente = $saldoPendiente;
+
+        // 🔹 Devolver respuesta limpia
+        return response()->json([
+            'id' => $factura->id,
+            'codigo' => $factura->codigo,
+            'cliente' => $factura->cliente,
+            'usuario' => $factura->usuario,
+            'estado' => $factura->estado,
+            'total' => $factura->total,
+            'fecha_emision' => $factura->fecha_emision,
+            'subtotal' => $factura->subtotal,
+            'total_pagado' => $totalPagado,
+            'saldo_pendiente' => $saldoPendiente,
+            'detalles' => $factura->detalles,
+            'pagos' => $factura->pagos,
+        ]);
     }
 
     /**
