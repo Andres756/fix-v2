@@ -7,8 +7,10 @@ use App\Http\Requests\OrdenServicio\OrdenServicio\CreateOrdenRequest;
 use App\Http\Requests\OrdenServicio\OrdenServicio\UpdateOrdenRequest;
 use App\Http\Resources\OrdenServicio\OrdenServicioResource;
 use App\Models\OrdenServicio\OrdenServicio;
+use App\Models\OrdenServicio\HistorialEstadoOs;
 use App\Models\Cliente;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class OrdenServicioController extends Controller
 {
@@ -59,13 +61,13 @@ class OrdenServicioController extends Controller
      */
     public function show($clienteId, $ordenId)
     {
-        $cliente = Cliente::findOrFail($clienteId);
-
-        $orden = $cliente->ordenesServicio()
-            ->with(['equipos.tareas', 'equipos.repuestosInventario', 'equipos.repuestosExternos'])
+        $orden = OrdenServicio::with(['cliente', 'equipos'])
+            ->where('cliente_id', $clienteId)
             ->findOrFail($ordenId);
 
-        return new OrdenServicioResource($orden);
+        return response()->json([
+            'data' => $orden
+        ]);
     }
 
     /**
@@ -134,4 +136,69 @@ class OrdenServicioController extends Controller
 
         return OrdenServicioResource::collection($ordenes);
     }
+
+    /**
+     * 🔄 Actualiza el estado de la orden según el estado de sus equipos
+     */
+    public function actualizarEstado($clienteId, $ordenId)
+    {
+        try {
+            $orden = OrdenServicio::with('equipos')
+                ->where('cliente_id', $clienteId)
+                ->findOrFail($ordenId);
+
+            // 🟡 Si ya está finalizada, avisamos y no hacemos nada
+            if (strtolower(trim($orden->estado)) === 'finalizada') {
+                return response()->json([
+                    'message' => 'La orden ya se encuentra finalizada.',
+                    'estado' => $orden->estado,
+                    'fecha_entrega' => $orden->fecha_entrega,
+                ], 200);
+            }
+
+            if ($orden->equipos->isEmpty()) {
+                return response()->json([
+                    'message' => 'No hay equipos asociados a esta orden.'
+                ], 400);
+            }
+
+            // ✅ Permitir ambas formas "finalizado" o "finalizada"
+            $todosFinalizados = $orden->equipos->every(function ($e) {
+                $estado = strtolower(trim($e->estado));
+                return in_array($estado, ['finalizado', 'finalizada']);
+            });
+
+            if ($todosFinalizados) {
+                $orden->estado = 'finalizada';
+                $orden->fecha_entrega = now();
+                $orden->save();
+
+                HistorialEstadoOs::create([
+                    'orden_id' => $orden->id,
+                    'usuario_id' => Auth::id(),
+                    'estado_anterior' => $orden->getOriginal('estado'),
+                    'estado_nuevo' => 'finalizada',
+                    'descripcion' => 'Orden marcada como finalizada automáticamente.',
+                ]);
+
+                return response()->json([
+                    'message' => 'Orden actualizada a estado Finalizada correctamente',
+                    'estado' => $orden->estado,
+                    'fecha_entrega' => $orden->fecha_entrega,
+                ], 200);
+            }
+
+            return response()->json([
+                'message' => 'Existen equipos sin finalizar. No se puede cerrar la orden.',
+                'estado' => $orden->estado,
+            ], 422);
+
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Error al actualizar el estado de la orden',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
 }

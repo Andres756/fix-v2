@@ -226,55 +226,64 @@ Route::apiResource('clientes', ClienteController::class)
     ->parameters(['clientes' => 'cliente']);
 
 // ── Órdenes de un Cliente
-Route::prefix('clientes/{clienteId}/ordenes')->group(function () {
-    Route::get('/', [OrdenServicioController::class, 'index']);
-    Route::post('/', [OrdenServicioController::class, 'store']);
-    Route::get('{ordenId}', [OrdenServicioController::class, 'show']);
-    Route::put('{ordenId}', [OrdenServicioController::class, 'update']);
-    Route::delete('{ordenId}', [OrdenServicioController::class, 'destroy']);
+Route::prefix('clientes/{clienteId}/ordenes')
+    ->middleware(['auth:sanctum']) // 👈 asegura que Auth::id() devuelva el usuario correcto
+    ->group(function () {
 
-    // ── Equipos de una Orden
-    Route::prefix('{ordenId}/equipos')->group(function () {
-        Route::get('/', [EquipoOrdenServicioController::class, 'index']);
-        Route::post('/', [EquipoOrdenServicioController::class, 'store']);
-        Route::get('{equipoId}', [EquipoOrdenServicioController::class, 'show']);
-        Route::put('{equipoId}', [EquipoOrdenServicioController::class, 'update']);
-        Route::delete('{equipoId}', [EquipoOrdenServicioController::class, 'destroy']);
+        // ── CRUD principal
+        Route::get('/', [OrdenServicioController::class, 'index']);
+        Route::post('/', [OrdenServicioController::class, 'store']);
+        Route::get('{ordenId}', [OrdenServicioController::class, 'show']);
+        Route::put('{ordenId}', [OrdenServicioController::class, 'update']);
+        Route::delete('{ordenId}', [OrdenServicioController::class, 'destroy']);
 
-        // ── Tareas de un Equipo
-        Route::prefix('{equipoId}/tareas')->group(function () {
-            Route::get('/', [TareaEquipoController::class, 'index']);
-            Route::post('/', [TareaEquipoController::class, 'store']);
-            Route::get('{tareaId}', [TareaEquipoController::class, 'show']);
-            Route::put('{tareaId}', [TareaEquipoController::class, 'update']);
-            Route::delete('{tareaId}', [TareaEquipoController::class, 'destroy']);
+        // ── Actualizar estado de una Orden
+        Route::patch('{ordenId}/actualizar-estado', [OrdenServicioController::class, 'actualizarEstado']);
+
+        // ── Equipos de una Orden
+        Route::prefix('{ordenId}/equipos')->group(function () {
+
+            // CRUD de equipos
+            Route::get('/', [EquipoOrdenServicioController::class, 'index']);
+            Route::post('/', [EquipoOrdenServicioController::class, 'store']);
+            Route::get('{equipoId}', [EquipoOrdenServicioController::class, 'show']);
+            Route::put('{equipoId}', [EquipoOrdenServicioController::class, 'update']);
+            Route::delete('{equipoId}', [EquipoOrdenServicioController::class, 'destroy']);
+
+            // ── Tareas de un Equipo
+            Route::prefix('{equipoId}/tareas')->group(function () {
+                Route::get('/', [TareaEquipoController::class, 'index']);
+                Route::post('/', [TareaEquipoController::class, 'store']);
+                Route::get('{tareaId}', [TareaEquipoController::class, 'show']);
+                Route::put('{tareaId}', [TareaEquipoController::class, 'update']);
+                Route::delete('{tareaId}', [TareaEquipoController::class, 'destroy']);
+            });
+
+            // ── Repuestos de Inventario
+            Route::prefix('{equipoId}/repuestos-inventario')->group(function () {
+                Route::get('/', [RepuestoOsInventarioController::class, 'index']);
+                Route::post('/', [RepuestoOsInventarioController::class, 'store']);
+                Route::get('{repuestoId}', [RepuestoOsInventarioController::class, 'show']);
+                Route::put('{repuestoId}', [RepuestoOsInventarioController::class, 'update']);
+                Route::delete('{repuestoId}', [RepuestoOsInventarioController::class, 'destroy']);
+            });
+
+            // ── Repuestos Externos
+            Route::prefix('{equipoId}/repuestos-externos')->group(function () {
+                Route::get('/', [RepuestoOsExternoController::class, 'index']);
+                Route::post('/', [RepuestoOsExternoController::class, 'store']);
+                Route::get('{repuestoExternoId}', [RepuestoOsExternoController::class, 'show']);
+                Route::put('{repuestoExternoId}', [RepuestoOsExternoController::class, 'update']);
+                Route::delete('{repuestoExternoId}', [RepuestoOsExternoController::class, 'destroy']);
+            });
+
+            // ── Historial de un Equipo
+            Route::get('{equipoId}/historial', [HistorialEstadoOsController::class, 'equipoHistorial']);
         });
 
-        // ── Repuestos Inventario
-        Route::prefix('{equipoId}/repuestos-inventario')->group(function () {
-            Route::get('/', [RepuestoOsInventarioController::class, 'index']);
-            Route::post('/', [RepuestoOsInventarioController::class, 'store']);
-            Route::get('{repuestoId}', [RepuestoOsInventarioController::class, 'show']);
-            Route::put('{repuestoId}', [RepuestoOsInventarioController::class, 'update']);
-            Route::delete('{repuestoId}', [RepuestoOsInventarioController::class, 'destroy']);
-        });
-
-        // ── Repuestos Externos
-        Route::prefix('{equipoId}/repuestos-externos')->group(function () {
-            Route::get('/', [RepuestoOsExternoController::class, 'index']);
-            Route::post('/', [RepuestoOsExternoController::class, 'store']);
-            Route::get('{repuestoExternoId}', [RepuestoOsExternoController::class, 'show']);
-            Route::put('{repuestoExternoId}', [RepuestoOsExternoController::class, 'update']);
-            Route::delete('{repuestoExternoId}', [RepuestoOsExternoController::class, 'destroy']);
-        });
-
-        // ── Historial de un Equipo
-        Route::get('{equipoId}/historial', [HistorialEstadoOsController::class, 'equipoHistorial']);
+        // ── Historial de una Orden
+        Route::get('{ordenId}/historial', [HistorialEstadoOsController::class, 'ordenHistorial']);
     });
-
-    // Historial de una Orden
-    Route::get('{ordenId}/historial', [HistorialEstadoOsController::class, 'ordenHistorial']);
-});
 
 Route::get('debug-simple', function() {
     return response()->json(['message' => 'API funcionando correctamente']);

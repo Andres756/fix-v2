@@ -6,18 +6,18 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class HistorialEstadoOsResource extends JsonResource
 {
-    public function toArray($request): array
+    public function toArray($request)
     {
         return [
             'id' => $this->id,
             'orden_id' => $this->orden_id,
-            'equipo_os_id' => $this->equipo_os_id,
-            'tarea_id' => $this->tarea_id,
-            'estado_anterior' => $this->estado_anterior,
-            'estado_nuevo' => $this->estado_nuevo,
-            'usuario_id' => $this->usuario_id,
-            'comentario' => $this->comentario,
-            'fecha_cambio' => $this->fecha_cambio,
+            'usuario' => $this->usuario?->name ?? '—',
+            'estado_anterior' => $this->estado_anterior ?? '—',
+            'estado_nuevo' => $this->estado_nuevo ?? '—',
+            'descripcion' => $this->descripcion ?? '—',
+            'fecha' => $this->created_at
+                ? $this->created_at->format('Y-m-d H:i:s')
+                : null,
         ];
     }
 }

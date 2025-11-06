@@ -12,10 +12,17 @@ class HistorialEstadoOsController extends Controller
 {
     public function ordenHistorial($clienteId, $ordenId)
     {
-        $orden = OrdenServicio::where('cliente_id', $clienteId)->findOrFail($ordenId);
-        return HistorialEstadoOsResource::collection(
-            HistorialEstadoOs::where('orden_id', $orden->id)->get()
-        );
+        $orden = OrdenServicio::where('cliente_id', $clienteId)
+            ->findOrFail($ordenId);
+
+        // 🔹 Cargamos el historial con el usuario y ordenamos del más reciente al más antiguo
+        $historial = HistorialEstadoOs::with('usuario')
+            ->where('orden_id', $orden->id)
+            ->orderByDesc('id')
+            ->get();
+
+        // 🔹 Enviamos la colección con el resource
+        return HistorialEstadoOsResource::collection($historial);
     }
 
     public function equipoHistorial($clienteId, $ordenId, $equipoId)

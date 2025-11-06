@@ -4,7 +4,7 @@ namespace App\Models\OrdenServicio;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use App\Models\Users\User;
+use App\Models\User;
 
 class HistorialEstadoOs extends Model
 {
@@ -22,6 +22,8 @@ class HistorialEstadoOs extends Model
         'comentario',
         'fecha_cambio'
     ];
+
+    public $timestamps = true;
 
     public function ordenServicio()
     {

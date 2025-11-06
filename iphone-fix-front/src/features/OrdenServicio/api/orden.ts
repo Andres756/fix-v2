@@ -25,10 +25,17 @@ export async function updateOrden(clienteId: number, ordenId: number, payload: U
   return data?.data ?? data
 }
 
-/* ====== HISTORIAL ORDEN ====== */
-export async function fetchHistorialOrden(clienteId: number, ordenId: number): Promise<any[]> {
-  const { data } = await http.get(`/clientes/${clienteId}/ordenes/${ordenId}/historial`)
-  return data?.data ?? data
+/**
+ * 📜 Obtener historial de una orden
+ */
+export async function fetchHistorialOrden(clienteId: number, ordenId: number) {
+  try {
+    const { data } = await http.get(`/clientes/${clienteId}/ordenes/${ordenId}/historial`)
+    return data
+  } catch (error) {
+    console.error('Error cargando historial de la orden:', error)
+    throw error
+  }
 }
 
 // GET /ordenes (global)
@@ -37,3 +44,8 @@ export async function fetchOrdenesGlobal(params?: { q?: string; estado?: string;
   return res.data
 }
 
+// ✅ Actualizar estado
+export async function actualizarEstadoOrden(clienteId: number, ordenId: number) {
+  const res = await http.patch(`/clientes/${clienteId}/ordenes/${ordenId}/actualizar-estado`)
+  return res.data
+}

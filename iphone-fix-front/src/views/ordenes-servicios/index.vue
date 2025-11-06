@@ -91,6 +91,21 @@
       @updated="loadOrders"
       @deleted="loadOrders"
     />
+
+    <VerOrdenModal
+      :open="showViewModal"
+      :clienteId="currentClienteId"
+      :ordenId="currentOrdenId"
+      @close="showViewModal = false"
+      @updated="loadOrders"
+    />
+
+    <HistorialModal
+      :open="showHistorialModal"
+      :clienteId="currentClienteId"
+      :ordenId="currentOrdenId"
+      @close="showHistorialModal = false"
+    />
   </div>
 </template>
 
@@ -103,6 +118,8 @@ import ClienteModal from '../../features/OrdenServicio/components/ClienteModal.v
 import OrdenModal from '../../features/OrdenServicio/components/OrdenModal.vue'
 import OrdersTable from '../../features/OrdenServicio/components/OrdersTable.vue'
 import EquipoModal from '../../features/OrdenServicio/components/EquipoModal.vue'
+import VerOrdenModal from '../../features/OrdenServicio/components/VerOrdenModal.vue'
+import HistorialModal from '../../features/OrdenServicio/components/HistorialModal.vue'
 
 import { fetchOrdenesGlobal } from '../../features/OrdenServicio/api/orden'
 import type { OrdenServicio } from '../../features/OrdenServicio/types/orden'
@@ -112,6 +129,8 @@ const showClientModal = ref(false)
 const showOrderModal = ref(false)
 const showEquiposModal = ref(false)
 const isLoading = ref(false)
+const showViewModal = ref(false)
+const showHistorialModal = ref(false)
 
 // ---------- Contexto para Equipos
 const currentClienteId = ref<number>(0)
@@ -158,6 +177,7 @@ onBeforeUnmount(() => {
 // (Si en tu tabla usas 'filteredOrders', puedes dejar este computed passthrough)
 const filteredOrders = computed(() => orders.value)
 
+
 // ---------- Handlers UI/Modales
 function onClientCreated() {
   showClientModal.value = false
@@ -170,13 +190,16 @@ async function onOrderCreated() {
   await loadOrders()
 }
 
-function onView(orderId: number) {
-  toast.info(`Ver detalle de OS-${String(orderId).padStart(4, '0')}`)
+function onView(orderId: number, clienteId: number) {
+  currentOrdenId.value = orderId
+  currentClienteId.value = clienteId
+  showViewModal.value = true
 }
 
 function onHistory(orderId: number, clienteId: number) {
-  // router.push(`/clientes/${clienteId}/ordenes/${orderId}/historial`)
-  toast.info(`Ver historial de OS-${String(orderId).padStart(4, '0')}`)
+  currentOrdenId.value = orderId
+  currentClienteId.value = clienteId
+  showHistorialModal.value = true
 }
 
 function onEquipos(orderId: number, clienteId: number) {
