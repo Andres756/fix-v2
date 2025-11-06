@@ -12,6 +12,8 @@ use App\Models\Facturacion\Factura;
 use App\Models\Facturacion\FacturaDetalle;
 use App\Models\Facturacion\FacturaAuditoria;
 use App\Services\Facturacion\AnulacionFacturaService;
+use Illuminate\Support\Facades\Response;
+use PDF; // usa barryvdh/laravel-dompdf
 
 class FacturacionController extends Controller
 {
@@ -463,7 +465,6 @@ class FacturacionController extends Controller
         }
     }
 
-
     /**
      * 🛠️ Entregar equipos asociados a una factura de orden de servicio
      */
@@ -595,6 +596,59 @@ class FacturacionController extends Controller
             return response()->json([
                 'message' => 'Error al generar la factura de servicio',
                 'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function obtenerUrlImpresion(int $id)
+    {
+        try {
+            $factura = \App\Models\Facturacion\Factura::findOrFail($id);
+
+            // 🔹 Por ahora devolvemos la URL de ticket PDF
+            $urlTicket = url("/api/facturacion/facturas/{$id}/ticket");
+
+            return response()->json([
+                'message' => 'URL de impresión generada correctamente',
+                'url' => $urlTicket,
+                'tipo' => 'ticket', // podrías cambiar a 'pdf' si necesitas formato A4
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Error al generar la URL de impresión',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function generarTicket(int $id)
+    {
+        try {
+            $factura = Factura::with(['cliente', 'detalles', 'usuario', 'estado'])
+                ->findOrFail($id);
+
+            $empresa = \App\Models\Parametros\ParametroFacturacion::first();
+
+            // Opción 2: Calcular altura dinámica basada en contenido
+            $altoBase = 400; // Alto mínimo
+            $altoPorProducto = 40; // Altura aproximada por producto
+            $altoCalculado = $altoBase + ($factura->detalles->count() * $altoPorProducto);
+
+            $pdf = \PDF::loadView('pdf.ticket', [
+                'factura' => $factura,
+                'empresa' => $empresa
+            ])->setPaper([0, 0, 226.77, $altoCalculado], 'portrait');
+
+            $nombreArchivo = "{$factura->codigo}_ticket.pdf";
+
+            return Response::make($pdf->output(), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => "inline; filename=\"{$nombreArchivo}\""
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Error al generar el ticket de factura',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

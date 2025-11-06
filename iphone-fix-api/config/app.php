@@ -214,4 +214,9 @@ return [
         // 'ExampleClass' => App\Example\ExampleClass::class,
     ])->toArray(),
 
+    Barryvdh\DomPDF\ServiceProvider::class,
+
+    'PDF' => Barryvdh\DomPDF\Facade\Pdf::class,
+
+
 ];

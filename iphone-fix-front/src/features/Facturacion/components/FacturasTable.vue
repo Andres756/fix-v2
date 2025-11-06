@@ -155,9 +155,9 @@
 
                   <!-- Imprimir -->
                   <button
-                    @click="$emit('print', factura.id)"
+                    @click="verFactura(factura.id)"
                     class="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-                    title="Imprimir"
+                    title="Imprimir factura"
                   >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -214,8 +214,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import type { Factura } from '../types/factura'
+import { getFacturaPrintUrl } from '../api/facturacion'
+import { toast } from 'vue3-toastify'
 
 // Props
 interface Props {
@@ -237,7 +238,7 @@ const emit = defineEmits<{
   (e: 'create-factura'): void
 }>()
 
-// Helpers para formateo
+// Helpers de formato (mantén los tuyos aquí)
 const formatMoney = (amount: number): string => {
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
@@ -266,37 +267,39 @@ const formatTime = (dateStr: string): string => {
   })
 }
 
-// Clases para estados
+// Estado visual
 const getEstadoClass = (codigo?: string): string => {
   const base = 'px-3 py-1 text-xs font-semibold rounded-full inline-flex items-center'
-  
   switch (codigo) {
-    case 'PEND':
-      return `${base} bg-yellow-100 text-yellow-800`
-    case 'PARC':
-      return `${base} bg-blue-100 text-blue-800`
-    case 'PAGA':
-      return `${base} bg-green-100 text-green-800`
-    case 'ANUL':
-      return `${base} bg-red-100 text-red-800`
-    default:
-      return `${base} bg-gray-100 text-gray-800`
+    case 'PEND': return `${base} bg-yellow-100 text-yellow-800`
+    case 'PARC': return `${base} bg-blue-100 text-blue-800`
+    case 'PAGA': return `${base} bg-green-100 text-green-800`
+    case 'ANUL': return `${base} bg-red-100 text-red-800`
+    default: return `${base} bg-gray-100 text-gray-800`
   }
 }
 
-// Clases para tipos
 const getTipoClass = (codigo?: string): string => {
   const base = 'px-2 py-1 text-xs font-medium rounded'
-  
   switch (codigo) {
-    case 'VD':
-      return `${base} bg-indigo-100 text-indigo-700`
-    case 'SRV':
-      return `${base} bg-cyan-100 text-cyan-700`
-    case 'PS':
-      return `${base} bg-purple-100 text-purple-700`
-    default:
-      return `${base} bg-gray-100 text-gray-700`
+    case 'VD': return `${base} bg-indigo-100 text-indigo-700`
+    case 'SRV': return `${base} bg-cyan-100 text-cyan-700`
+    case 'PS': return `${base} bg-purple-100 text-purple-700`
+    default: return `${base} bg-gray-100 text-gray-700`
+  }
+}
+
+// ✅ Abrir ticket o PDF directamente
+const verFactura = async (facturaId: number) => {
+  try {
+    const url = await getFacturaPrintUrl(facturaId)
+    if (!url) throw new Error('No se pudo obtener la URL del ticket')
+    window.open(url, '_blank')
+  } catch (error: any) {
+    console.error('Error al imprimir la factura:', error)
+    toast.error('Error al obtener la factura para imprimir')
   }
 }
 </script>
+
+

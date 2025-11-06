@@ -317,30 +317,47 @@ export async function entregarEquipos(
 }
 
 /**
- * Obtener URL de impresión de factura
+ * Obtener la URL del ticket para impresión
  */
 export async function getFacturaPrintUrl(facturaId: number): Promise<string> {
   try {
-    const response = await http.get(`/facturacion/facturas/${facturaId}/imprimir`)
-    return response.data.url || `/facturacion/facturas/${facturaId}/pdf`
+    // El endpoint correcto según tu backend
+    const response = await http.get(`/facturacion/facturas/${facturaId}/ticket`, {
+      responseType: 'blob'
+    })
+
+    // Crear blob y abrir en nueva pestaña
+    const blob = new Blob([response.data], { type: 'application/pdf' })
+    const url = window.URL.createObjectURL(blob)
+    window.open(url, '_blank')
+
+    // También devolver la URL por si se necesita
+    return url
   } catch (error) {
-    console.error('Error getting print URL:', error)
-    throw new Error(extractErrorMessage(error))
+    console.error('Error al obtener el ticket:', error)
+    throw new Error('Error al generar el ticket de factura')
   }
 }
 
 /**
- * Descargar factura como PDF
+ * Descargar ticket o PDF de factura
+ * Usa el endpoint /ticket por defecto
  */
-export async function downloadFacturaPDF(facturaId: number): Promise<Blob> {
+export async function downloadFacturaPDF(facturaId: number): Promise<void> {
   try {
-    const response = await http.get(`/facturacion/facturas/${facturaId}/pdf`, {
+    // Descarga directa del ticket (formato pequeño tipo POS)
+    const response = await http.get(`/facturacion/facturas/${facturaId}/ticket`, {
       responseType: 'blob'
     })
-    return response.data
+
+    const blob = new Blob([response.data], { type: 'application/pdf' })
+    const url = window.URL.createObjectURL(blob)
+
+    // Abrir automáticamente en una nueva pestaña
+    window.open(url, '_blank')
   } catch (error) {
-    console.error('Error downloading PDF:', error)
-    throw new Error(extractErrorMessage(error))
+    console.error('Error descargando factura (ticket):', error)
+    throw new Error('Error al descargar el ticket de factura')
   }
 }
 

@@ -217,6 +217,12 @@
       @create-factura="showNuevaFactura = true"
     />
 
+    <FacturaDetalleModal
+      :open="showDetalleModal"
+      :factura-id="selectedFacturaId"
+      @close="showDetalleModal = false"
+    />
+
     <!-- Paginación -->
     <div v-if="meta && meta.last_page > 1" class="mt-6">
       <div class="flex items-center justify-between">
@@ -259,6 +265,8 @@
       </div>
     </div>
 
+
+
     <!-- Modales -->
     <NuevaFacturaModal
       :open="showNuevaFactura"
@@ -292,6 +300,7 @@ import FacturasTable from '../../features/Facturacion/components/FacturasTable.v
 import NuevaFacturaModal from '../../features/Facturacion/components/NuevaFacturaModal.vue'
 import PagoModal from '../../features/Facturacion/components/PagoModal.vue'
 import AnularFacturaModal from '../../features/Facturacion/components/AnularFacturaModal.vue'
+import FacturaDetalleModal from '../../features/Facturacion/components/FacturaDetalleModal.vue'
 
 // API
 import { 
@@ -412,10 +421,14 @@ const goToPage = (page: number) => {
   loadFacturas()
 }
 
-// Handlers
-const handleView = (facturaId: number) => {
-  // TODO: Implementar modal de detalle
-  console.log('Ver factura:', facturaId)
+
+// 🔹 Variables para el modal de detalle
+const showDetalleModal = ref(false)
+
+// 🔹 Abrir modal de detalle
+function handleView(id: number) {
+  selectedFacturaId.value = id
+  showDetalleModal.value = true
 }
 
 const handlePrint = async (facturaId: number) => {
