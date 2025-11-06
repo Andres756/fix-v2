@@ -188,6 +188,7 @@ Route::prefix('facturacion')->middleware(['auth:sanctum'])->group(function () {
     Route::get('facturas/{id}/ticket', [FacturacionController::class, 'generarTicket']) ->middleware('auth:sanctum');
     Route::get('facturacion/facturas/{id}/imprimir', [FacturacionController::class, 'obtenerUrlImpresion']) ->middleware('auth:sanctum');
 
+    Route::get('resumen', [FacturacionController::class, 'resumen']);
     Route::post('ordenes/{orden}/prefacturar', [FacturacionController::class, 'prefacturarOS']);
 });
 

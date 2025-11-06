@@ -20,72 +20,77 @@
       </div>
     </div>
 
-    <!-- Tarjetas de resumen -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm text-gray-600">Ventas del Día</p>
-            <p class="text-2xl font-bold text-gray-900 mt-1">
-              {{ formatMoney(resumen.total_ventas_dia) }}
-            </p>
-          </div>
-          <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
+  <!-- Tarjetas de resumen -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <!-- Ventas del día -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-gray-600">Ventas del Día</p>
+          <p class="text-2xl font-bold text-gray-900 mt-1">
+            {{ formatMoney(resumen.ventas_dia) }}
+          </p>
         </div>
-      </div>
-
-      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm text-gray-600">Ventas del Mes</p>
-            <p class="text-2xl font-bold text-gray-900 mt-1">
-              {{ formatMoney(resumen.total_ventas_mes) }}
-            </p>
-          </div>
-          <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-          </div>
-        </div>
-      </div>
-
-      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm text-gray-600">Facturas Pendientes</p>
-            <p class="text-2xl font-bold text-gray-900 mt-1">{{ resumen.facturas_pendientes }}</p>
-          </div>
-          <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-            <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-        </div>
-      </div>
-
-      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm text-gray-600">Anuladas este Mes</p>
-            <p class="text-2xl font-bold text-gray-900 mt-1">{{ resumen.facturas_anuladas_mes }}</p>
-          </div>
-          <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-            </svg>
-          </div>
+        <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
         </div>
       </div>
     </div>
+
+    <!-- Ventas del mes -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-gray-600">Ventas del Mes</p>
+          <p class="text-2xl font-bold text-gray-900 mt-1">
+            {{ formatMoney(resumen.ventas_mes) }}
+          </p>
+        </div>
+        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Facturas pendientes -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-gray-600">Facturas Pendientes</p>
+          <p class="text-2xl font-bold text-gray-900 mt-1">{{ resumen.facturas_pendientes }}</p>
+        </div>
+        <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Anuladas este mes -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-gray-600">Anuladas este Mes</p>
+          <p class="text-2xl font-bold text-gray-900 mt-1">{{ resumen.anuladas_mes }}</p>
+        </div>
+        <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
 
     <!-- Filtros -->
     <div class="bg-white rounded-xl shadow-sm p-4 mb-6 border border-gray-200">
@@ -320,11 +325,11 @@ const currentPage = ref(1)
 const showAdvancedFilters = ref(false)
 
 // Resumen
-const resumen = ref<ResumenFacturacion>({
-  total_ventas_dia: 0,
-  total_ventas_mes: 0,
-  facturas_pendientes: 0,
-  facturas_anuladas_mes: 0
+const resumen = ref({ ventas_dia: 0, ventas_mes: 0, facturas_pendientes: 0, anuladas_mes: 0 })
+
+onMounted(async () => {
+  const data = await fetchResumenFacturacion()
+  resumen.value = data
 })
 
 // Filtros
@@ -381,9 +386,7 @@ const loadFacturas = async () => {
     facturas.value = (response.data || []).map(f => ({ ...f }))
     meta.value = { ...response.meta }
     
-    console.log('✅ Facturas actualizadas:', facturas.value) // Debug
   } catch (error) {
-    console.error('Error loading facturas:', error)
     toast.error('Error al cargar las facturas')
   } finally {
     isLoading.value = false
@@ -394,7 +397,6 @@ const loadResumen = async () => {
   try {
     resumen.value = await fetchResumenFacturacion()
   } catch (error) {
-    console.error('Error loading resumen:', error)
   }
 }
 
