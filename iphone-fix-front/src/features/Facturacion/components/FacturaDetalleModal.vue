@@ -81,6 +81,7 @@
                       <th class="text-center px-4 py-2">Cantidad</th>
                       <th class="text-right px-4 py-2">Valor unitario</th>
                       <th class="text-right px-4 py-2">Total</th>
+                       <th class="text-center px-4 py-2">Entregado</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -89,6 +90,14 @@
                       <td class="px-4 py-2 text-center">{{ d.cantidad }}</td>
                       <td class="px-4 py-2 text-right">{{ formatMoney(d.valor_unitario) }}</td>
                       <td class="px-4 py-2 text-right font-semibold">{{ formatMoney(d.total) }}</td>
+                      <td class="px-4 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          :checked="!!d.entregado"
+                          disabled
+                          class="accent-green-600 w-4 h-4 cursor-not-allowed"
+                        />
+                      </td>
                     </tr>
                   </tbody>
                 </table>

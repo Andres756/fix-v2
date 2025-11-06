@@ -29,6 +29,7 @@
       <!-- Navigation Menu -->
       <nav class="sidebar-nav">
         <ul class="nav-list">
+          <!-- Dashboard - Azul -->
           <li class="nav-item" :class="{ active: activeRoute === 'dashboard' }">
             <router-link to="/" class="nav-link nav-link-dashboard" @click="handleNavClick">
               <div class="nav-icon blue-icon">
@@ -40,22 +41,24 @@
                 </svg>
               </div>
               <span class="nav-text">Dashboard</span>
-              <div class="nav-indicator" v-if="activeRoute === 'dashboard'"></div>
+              <div class="nav-indicator blue-indicator" v-if="activeRoute === 'dashboard'"></div>
             </router-link>
           </li>
 
+          <!-- Inventario - Indigo -->
           <li class="nav-item" :class="{ active: activeRoute === 'inventario' }">
             <router-link to="/inventario" class="nav-link nav-link-inventario" @click="handleNavClick">
-              <div class="nav-icon blue-icon">
+              <div class="nav-icon indigo-icon">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                   <path d="M21 16V8a2 2 0 0 0-1-1.73L12 2 4 6.27A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73L12 22l8-4.27A2 2 0 0 0 21 16z" stroke="currentColor" stroke-width="2"/>
                 </svg>
               </div>
               <span class="nav-text">Inventario</span>
-              <div class="nav-indicator" v-if="activeRoute === 'inventario'"></div>
+              <div class="nav-indicator indigo-indicator" v-if="activeRoute === 'inventario'"></div>
             </router-link>
           </li>
 
+          <!-- Facturación - Verde -->
           <li class="nav-item" :class="{ active: activeRoute === 'facturacion' }">
             <router-link to="/facturacion" class="nav-link nav-link-facturacion" @click="handleNavClick">
               <div class="nav-icon green-icon">
@@ -67,10 +70,24 @@
                 </svg>
               </div>
               <span class="nav-text">Facturación</span>
-              <div class="nav-indicator" v-if="activeRoute === 'facturacion'"></div>
+              <div class="nav-indicator green-indicator" v-if="activeRoute === 'facturacion'"></div>
             </router-link>
           </li>
 
+          <!-- Plan Separe - Amarillo -->
+          <li class="nav-item" :class="{ active: activeRoute === 'plan-separe' }">
+            <router-link to="/plan-separe" class="nav-link nav-link-plansepare" @click="handleNavClick">
+              <div class="nav-icon indigo-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" stroke="currentColor" stroke-width="2"/>
+                </svg>
+              </div>
+              <span class="nav-text">Plan Separe</span>
+              <div class="nav-indicator" v-if="activeRoute === 'plan-separe'"></div>
+            </router-link>
+          </li>
+
+          <!-- Órdenes de Servicio - Naranja -->
           <li class="nav-item" :class="{ active: activeRoute === 'ordenes' }">
             <router-link to="/ordenes" class="nav-link nav-link-ordenes" @click="handleNavClick">
               <div class="nav-icon orange-icon">
@@ -80,10 +97,11 @@
                 </svg>
               </div>
               <span class="nav-text">Órdenes de Servicio</span>
-              <div class="nav-indicator" v-if="activeRoute === 'ordenes'"></div>
+              <div class="nav-indicator orange-indicator" v-if="activeRoute === 'ordenes'"></div>
             </router-link>
           </li>
 
+          <!-- Técnicos - Teal/Turquesa -->
           <li class="nav-item" :class="{ active: activeRoute === 'tecnicos' }">
             <router-link to="/ordenes/tecnicos" class="nav-link nav-link-tecnicos" @click="handleNavClick">
               <div class="nav-icon teal-icon">
@@ -93,10 +111,11 @@
                 </svg>
               </div>
               <span class="nav-text">Técnicos</span>
-              <div class="nav-indicator" v-if="activeRoute === 'tecnicos'"></div>
+              <div class="nav-indicator teal-indicator" v-if="activeRoute === 'tecnicos'"></div>
             </router-link>
           </li>
 
+          <!-- Gastos - Rojo -->
           <li class="nav-item" :class="{ active: activeRoute === 'gastos' }">
             <router-link to="/gastos" class="nav-link nav-link-gastos" @click="handleNavClick">
               <div class="nav-icon red-icon">
@@ -107,10 +126,11 @@
                 </svg>
               </div>
               <span class="nav-text">Gastos</span>
-              <div class="nav-indicator" v-if="activeRoute === 'gastos'"></div>
+              <div class="nav-indicator red-indicator" v-if="activeRoute === 'gastos'"></div>
             </router-link>
           </li>
 
+          <!-- Informes - Púrpura -->
           <li class="nav-item" :class="{ active: activeRoute === 'informes' }">
             <router-link to="/informes" class="nav-link nav-link-informes" @click="handleNavClick">
               <div class="nav-icon purple-icon">
@@ -121,7 +141,7 @@
                 </svg>
               </div>
               <span class="nav-text">Informes</span>
-              <div class="nav-indicator" v-if="activeRoute === 'informes'"></div>
+              <div class="nav-indicator purple-indicator" v-if="activeRoute === 'informes'"></div>
             </router-link>
           </li>
         </ul>
@@ -132,6 +152,7 @@
             <span>ADMINISTRADOR</span>
           </div>
           <ul class="nav-list">
+            <!-- Parametrización - Cyan -->
             <li class="nav-item" :class="{ active: activeRoute === 'parametrizacion' }">
               <router-link to="/parametrizacion" class="nav-link nav-link-parametrizacion" @click="handleNavClick">
                 <div class="nav-icon cyan-icon">
@@ -141,20 +162,21 @@
                   </svg>
                 </div>
                 <span class="nav-text">Parametrización</span>
-                <div class="nav-indicator" v-if="activeRoute === 'parametrizacion'"></div>
+                <div class="nav-indicator cyan-indicator" v-if="activeRoute === 'parametrizacion'"></div>
               </router-link>
             </li>
 
+            <!-- Usuarios - Rosa -->
             <li class="nav-item" :class="{ active: activeRoute === 'usuarios' }">
               <router-link to="/usuarios" class="nav-link nav-link-usuarios" @click="handleNavClick">
-                <div class="nav-icon purple-icon">
+                <div class="nav-icon pink-icon">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2"/>
                     <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
                   </svg>
                 </div>
                 <span class="nav-text">Usuarios</span>
-                <div class="nav-indicator" v-if="activeRoute === 'usuarios'"></div>
+                <div class="nav-indicator pink-indicator" v-if="activeRoute === 'usuarios'"></div>
               </router-link>
             </li>
           </ul>
@@ -191,7 +213,18 @@ const isMobile = ref(false)
 
 const activeRoute = computed(() => {
   const path = route.path
+  
   if (path === '/') return 'dashboard'
+  if (path.startsWith('/ordenes/tecnicos')) return 'tecnicos'
+  if (path.startsWith('/ordenes')) return 'ordenes'
+  if (path.startsWith('/inventario')) return 'inventario'
+  if (path.startsWith('/facturacion')) return 'facturacion'
+  if (path.startsWith('/plan-separe')) return 'plan-separe'
+  if (path.startsWith('/gastos')) return 'gastos'
+  if (path.startsWith('/informes')) return 'informes'
+  if (path.startsWith('/parametrizacion')) return 'parametrizacion'
+  if (path.startsWith('/usuarios')) return 'usuarios'
+  
   return path.slice(1)
 })
 
@@ -328,43 +361,53 @@ onUnmounted(() => {
 
 /* Efectos hover específicos por color */
 .nav-link-dashboard:hover {
-  background: rgba(96, 165, 250, 0.1);
-  border-left-color: #60a5fa;
+  background: rgba(59, 130, 246, 0.1);
+  border-left-color: #3b82f6;
 }
 
 .nav-link-inventario:hover {
-  background: rgba(96, 165, 250, 0.1);
-  border-left-color: #60a5fa;
+  background: rgba(99, 102, 241, 0.1);
+  border-left-color: #6366f1;
 }
 
 .nav-link-facturacion:hover {
-  background: rgba(52, 211, 153, 0.1);
-  border-left-color: #34d399;
+  background: rgba(16, 185, 129, 0.1);
+  border-left-color: #10b981;
+}
+
+.nav-link-plansepare:hover {
+  background: rgba(245, 158, 11, 0.1);
+  border-left-color: #f59e0b;
 }
 
 .nav-link-ordenes:hover {
-  background: rgba(251, 191, 36, 0.1);
-  border-left-color: #fbbf24;
+  background: rgba(249, 115, 22, 0.1);
+  border-left-color: #f97316;
+}
+
+.nav-link-tecnicos:hover {
+  background: rgba(20, 184, 166, 0.1);
+  border-left-color: #14b8a6;
 }
 
 .nav-link-gastos:hover {
-  background: rgba(248, 113, 113, 0.1);
-  border-left-color: #f87171;
+  background: rgba(239, 68, 68, 0.1);
+  border-left-color: #ef4444;
 }
 
 .nav-link-informes:hover {
-  background: rgba(167, 139, 250, 0.1);
-  border-left-color: #a78bfa;
+  background: rgba(168, 85, 247, 0.1);
+  border-left-color: #a855f7;
 }
 
 .nav-link-parametrizacion:hover {
-  background: rgba(34, 211, 238, 0.1);
-  border-left-color: #22d3ee;
+  background: rgba(6, 182, 212, 0.1);
+  border-left-color: #06b6d4;
 }
 
 .nav-link-usuarios:hover {
-  background: rgba(167, 139, 250, 0.1);
-  border-left-color: #a78bfa;
+  background: rgba(236, 72, 153, 0.1);
+  border-left-color: #ec4899;
 }
 
 .nav-link:hover {
@@ -388,27 +431,43 @@ onUnmounted(() => {
 
 /* Colored icons */
 .blue-icon {
-  color: #60a5fa;
+  color: #3b82f6;
+}
+
+.indigo-icon {
+  color: #6366f1;
 }
 
 .green-icon {
-  color: #34d399;
+  color: #10b981;
+}
+
+.yellow-icon {
+  color: #f59e0b;
 }
 
 .orange-icon {
-  color: #fbbf24;
+  color: #f97316;
+}
+
+.teal-icon {
+  color: #14b8a6;
 }
 
 .red-icon {
-  color: #f87171;
+  color: #ef4444;
 }
 
 .purple-icon {
-  color: #a78bfa;
+  color: #a855f7;
 }
 
 .cyan-icon {
-  color: #22d3ee;
+  color: #06b6d4;
+}
+
+.pink-icon {
+  color: #ec4899;
 }
 
 .nav-text {
@@ -417,26 +476,123 @@ onUnmounted(() => {
   flex: 1;
 }
 
-/* Indicador de elemento activo (puntico azul) */
+/* Indicadores de elemento activo por color */
 .nav-indicator {
   width: 6px;
   height: 6px;
-  background: #60a5fa;
   border-radius: 50%;
   margin-left: 8px;
-  animation: pulse-indicator 2s infinite;
 }
 
-@keyframes pulse-indicator {
-  0% {
-    box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.7);
-  }
-  70% {
-    box-shadow: 0 0 0 4px rgba(96, 165, 250, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(96, 165, 250, 0);
-  }
+.blue-indicator {
+  background: #3b82f6;
+  animation: pulse-blue 2s infinite;
+}
+
+.indigo-indicator {
+  background: #6366f1;
+  animation: pulse-indigo 2s infinite;
+}
+
+.green-indicator {
+  background: #10b981;
+  animation: pulse-green 2s infinite;
+}
+
+.yellow-indicator {
+  background: #f59e0b;
+  animation: pulse-yellow 2s infinite;
+}
+
+.orange-indicator {
+  background: #f97316;
+  animation: pulse-orange 2s infinite;
+}
+
+.teal-indicator {
+  background: #14b8a6;
+  animation: pulse-teal 2s infinite;
+}
+
+.red-indicator {
+  background: #ef4444;
+  animation: pulse-red 2s infinite;
+}
+
+.purple-indicator {
+  background: #a855f7;
+  animation: pulse-purple 2s infinite;
+}
+
+.cyan-indicator {
+  background: #06b6d4;
+  animation: pulse-cyan 2s infinite;
+}
+
+.pink-indicator {
+  background: #ec4899;
+  animation: pulse-pink 2s infinite;
+}
+
+/* Animaciones de pulso para cada color */
+@keyframes pulse-blue {
+  0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+  70% { box-shadow: 0 0 0 4px rgba(59, 130, 246, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+}
+
+@keyframes pulse-indigo {
+  0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
+  70% { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+}
+
+@keyframes pulse-green {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+@keyframes pulse-yellow {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+  70% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+@keyframes pulse-orange {
+  0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.7); }
+  70% { box-shadow: 0 0 0 4px rgba(249, 115, 22, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
+}
+
+@keyframes pulse-teal {
+  0% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.7); }
+  70% { box-shadow: 0 0 0 4px rgba(20, 184, 166, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0); }
+}
+
+@keyframes pulse-red {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  70% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+@keyframes pulse-purple {
+  0% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.7); }
+  70% { box-shadow: 0 0 0 4px rgba(168, 85, 247, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); }
+}
+
+@keyframes pulse-cyan {
+  0% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.7); }
+  70% { box-shadow: 0 0 0 4px rgba(6, 182, 212, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0); }
+}
+
+@keyframes pulse-pink {
+  0% { box-shadow: 0 0 0 0 rgba(236, 72, 153, 0.7); }
+  70% { box-shadow: 0 0 0 4px rgba(236, 72, 153, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(236, 72, 153, 0); }
 }
 
 .nav-section {

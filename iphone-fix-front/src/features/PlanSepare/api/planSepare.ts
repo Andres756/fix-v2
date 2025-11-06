@@ -11,7 +11,7 @@ import type {
   ResumenPlanSepare,
   AbonoPlanSepare,
   DevolucionPlanSepare
-} from '../../Facturacion/types/planSepare'
+} from '../types/planSepare'
 
 // ===== Helpers para desempaquetar respuestas Laravel =====
 function unwrap<T>(axiosResp: any): T {
@@ -95,29 +95,17 @@ export async function createPlanSepare(payload: CreatePlanSeparePayload): Promis
   try {
     const response = await http.post('/plan-separe', payload)
     return response.data.plan || response.data
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating plan separe:', error)
-    
-    // Manejo específico de errores de negocio
-    const message = error.response?.data?.message || ''
-    
-    if (message.includes('ya tiene un plan activo')) {
-      throw new Error('El cliente ya tiene un plan separe activo para este producto')
-    }
-    
-    if (message.includes('precio no puede ser menor')) {
-      throw new Error('El precio del plan no puede ser menor al precio comercial del producto')
-    }
-    
-    if (message.includes('porcentaje debe estar entre')) {
-      throw new Error('El porcentaje mínimo debe estar entre 10% y 100%')
-    }
-    
-    if (message.includes('stock insuficiente')) {
-      throw new Error('No hay stock disponible para este producto')
-    }
-    
-    throw new Error(extractErrorMessage(error))
+
+    const msg =
+      error?.response?.data?.error ||
+      error?.response?.data?.message ||
+      error?.message ||
+      'Ocurrió un error inesperado.'
+
+    // 🔹 Lanza un Error con el mensaje claro, para que el modal pueda mostrarlo
+    throw new Error(msg)
   }
 }
 

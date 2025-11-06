@@ -183,6 +183,7 @@ const pageTitle = computed(() => {
     '/': 'Dashboard',
     '/inventario': 'Inventario',
     '/facturacion': 'Facturación',
+    '/plan-separe': 'Plan Separe',  // 👈 AGREGAR ESTA LÍNEA
     '/ordenes': 'Órdenes de Servicio',
     '/ordenes/tecnicos': 'Tecnicos',
     '/gastos': 'Gastos',
