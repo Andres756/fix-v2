@@ -5,7 +5,15 @@
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden">
           <!-- Header -->
           <div class="flex items-center justify-between p-5 border-b border-gray-200">
-            <h2 class="text-lg font-bold text-gray-900">Detalle de Factura</h2>
+            <h2 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+              Factura Detallada
+              <span
+                v-if="factura?.codigo"
+                class="text-sm font-mono bg-gray-100 text-gray-700 px-3 py-1 rounded-lg"
+              >
+                {{ factura.codigo }}
+              </span>
+            </h2>
             <button
               @click="emit('close')"
               class="p-2 text-gray-500 hover:bg-gray-100 rounded-full"
@@ -52,6 +60,58 @@
                 <p class="font-semibold text-orange-600">
                   {{ formatMoney(factura.saldo_pendiente) }}
                 </p>
+              </div>
+            </div>
+
+            <!-- Tabla de Detalles -->
+            <div>
+              <h3 class="text-md font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12h6m-6 4h6m-9-8h12M4 6h16M4 18h16" />
+                </svg>
+                Detalles de Factura
+              </h3>
+
+              <div v-if="factura.detalles?.length" class="border border-gray-200 rounded-lg overflow-hidden">
+                <table class="w-full text-sm">
+                  <thead class="bg-gray-100 text-gray-600">
+                    <tr>
+                      <th class="text-left px-4 py-2">Descripción</th>
+                      <th class="text-center px-4 py-2">Cantidad</th>
+                      <th class="text-right px-4 py-2">Valor unitario</th>
+                      <th class="text-right px-4 py-2">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="d in factura.detalles" :key="d.id" class="border-t border-gray-100">
+                      <td class="px-4 py-2">{{ d.descripcion }}</td>
+                      <td class="px-4 py-2 text-center">{{ d.cantidad }}</td>
+                      <td class="px-4 py-2 text-right">{{ formatMoney(d.valor_unitario) }}</td>
+                      <td class="px-4 py-2 text-right font-semibold">{{ formatMoney(d.total) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div v-else class="text-center text-sm text-gray-500 py-4">
+                No hay detalles registrados
+              </div>
+            </div>
+
+            <div class="flex justify-end mt-2 text-sm text-gray-700">
+              <div class="w-1/3">
+                <div class="flex justify-between">
+                  <span>Subtotal:</span>
+                  <span>{{ formatMoney(factura.subtotal) }}</span>
+                </div>
+                <div v-if="factura.descuentos > 0" class="flex justify-between">
+                  <span>Descuento:</span>
+                  <span>-{{ formatMoney(factura.descuentos) }}</span>
+                </div>
+                <div class="flex justify-between font-semibold">
+                  <span>Total:</span>
+                  <span>{{ formatMoney(factura.total) }}</span>
+                </div>
               </div>
             </div>
 
@@ -244,6 +304,5 @@ async function confirmarAnulacion() {
     console.error(error)
   }
 }
-
 </script>
 

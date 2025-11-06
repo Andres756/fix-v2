@@ -14,6 +14,7 @@ use App\Models\Facturacion\FacturaAuditoria;
 use App\Services\Facturacion\AnulacionFacturaService;
 use Illuminate\Support\Facades\Response;
 use PDF; // usa barryvdh/laravel-dompdf
+use Illuminate\Support\Facades\Cache;
 
 class FacturacionController extends Controller
 {
@@ -676,5 +677,56 @@ class FacturacionController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * 📊 Resumen de facturación para dashboard
+     */
+
+
+
+    public function resumen()
+    {
+        return Cache::remember('facturacion_resumen', 60, function () {
+            try {
+                $hoy = now()->toDateString();
+                $inicioMes = now()->startOfMonth()->toDateString();
+                $finMes = now()->endOfMonth()->toDateString();
+
+                // 1️⃣ Ventas del día
+                $ventasDia = \App\Models\Facturacion\Factura::whereDate('fecha_emision', $hoy)
+                    ->whereHas('estado', fn($q) => $q->where('codigo', '!=', 'ANUL'))
+                    ->sum('total');
+
+                // 2️⃣ Ventas del mes
+                $ventasMes = \App\Models\Facturacion\Factura::whereBetween('fecha_emision', [$inicioMes, $finMes])
+                    ->whereHas('estado', fn($q) => $q->where('codigo', '!=', 'ANUL'))
+                    ->sum('total');
+
+                // 3️⃣ Facturas pendientes (estado PEND)
+                $pendientes = \App\Models\Facturacion\Factura::whereHas('estado', fn($q) => $q->where('codigo', 'PEND'))
+                    ->count();
+
+                // 4️⃣ Facturas anuladas este mes
+                $anuladasMes = \App\Models\Facturacion\Factura::whereHas('estado', fn($q) => $q->where('codigo', 'ANUL'))
+                    ->whereBetween('fecha_emision', [$inicioMes, $finMes])
+                    ->count();
+
+                return response()->json([
+                    'message' => 'Resumen obtenido correctamente',
+                    'data' => [
+                        'ventas_dia' => $ventasDia,
+                        'ventas_mes' => $ventasMes,
+                        'facturas_pendientes' => $pendientes,
+                        'anuladas_mes' => $anuladasMes,
+                    ]
+                ]);
+            } catch (\Throwable $e) {
+                return response()->json([
+                    'message' => 'Error al obtener el resumen de facturación',
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
+        });
     }
 }
