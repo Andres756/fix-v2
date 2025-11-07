@@ -13,6 +13,8 @@ import type {
   DevolucionPlanSepare
 } from '../types/planSepare'
 
+import axios from 'axios'
+
 // ===== Helpers para desempaquetar respuestas Laravel =====
 function unwrap<T>(axiosResp: any): T {
   const payload = axiosResp?.data ?? axiosResp
@@ -124,6 +126,7 @@ export async function fetchAbonosPlan(planId: number): Promise<AbonoPlanSepare[]
   }
 }
 
+
 /**
  * Registrar abono a un plan separe
  */
@@ -137,41 +140,56 @@ export async function registrarAbono(
   factura_generada?: boolean
 }> {
   try {
-    const response = await http.post(`/plan-separe/${planId}/abono`, payload)
-    
+    const response = await http.post(`/plan-separe/${planId}/abonos`, payload)
+
     // Si el plan alcanzó el 100%, se genera factura automáticamente
     if (response.data.factura_generada) {
       return {
         message: 'Plan completado y facturado exitosamente',
         plan: response.data.plan,
         abono: response.data.abono,
-        factura_generada: true
+        factura_generada: true,
       }
     }
-    
+
     return response.data
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error registrando abono:', error)
-    
-    const message = error.response?.data?.message || ''
-    
+
+    // ✅ Mantener compatibilidad con tus validaciones existentes
+    const message = error?.response?.data?.message || ''
+    const backendError = error?.response?.data?.error
+
     if (message.includes('plan ya está facturado')) {
       throw new Error('Este plan ya fue facturado y no acepta más abonos')
     }
-    
+
     if (message.includes('plan está cancelado')) {
       throw new Error('No se pueden registrar abonos en un plan cancelado')
     }
-    
+
     if (message.includes('valor excede')) {
       throw new Error('El valor del abono excede el saldo pendiente')
     }
-    
-    throw new Error(extractErrorMessage(error))
+
+    // ✅ Si el backend envía un mensaje específico (como el del stock), lo propagamos intacto
+    if (backendError) {
+      // 👈 devolvemos el mismo objeto de error para no perder el response original
+      throw error
+    }
+
+    // ✅ Fallback general
+    throw new Error(message || error.message || 'Error al registrar el abono')
   }
 }
 
+
 // ========== ANULACIÓN Y DEVOLUCIÓN ==========
+
+export async function fetchMotivosAnulacion() {
+  const { data } = await http.get('/plan-separe/motivos-anulacion')
+  return data as Array<{ id: number; nombre: string; descripcion?: string }>
+}
 
 /**
  * Anular plan separe (con o sin devolución)

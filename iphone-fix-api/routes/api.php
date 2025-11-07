@@ -49,6 +49,7 @@ use App\Http\Controllers\api\Inventario\InventarioExportController;
 use App\Http\Controllers\Api\PlanSepare\PlanSepareController;
 use App\Http\Controllers\Api\PlanSepare\AbonoController;
 use App\Http\Controllers\Api\PlanSepare\EstadoController;
+use App\Http\Controllers\Api\PlanSepare\MotivoAnulacionPlanSepareController;
 
 // ─────────────────────────────────────────────
 // Facturacion
@@ -144,6 +145,9 @@ Route::prefix('inventario')->group(function () {
 
 // ── Plan Separe
 Route::prefix('plan-separe')->middleware(['auth:sanctum'])->group(function () {
+
+    Route::get('/motivos-anulacion', [MotivoAnulacionPlanSepareController::class, 'index']);
+
     Route::get('/', [PlanSepareController::class, 'index']);
     Route::post('/', [PlanSepareController::class, 'store']);
     Route::get('/{id}', [PlanSepareController::class, 'show']);
@@ -162,6 +166,7 @@ Route::prefix('plan-separe')->middleware(['auth:sanctum'])->group(function () {
     // Estado manual
     Route::patch('/{id}/estado', [EstadoController::class, 'update']);
     Route::patch('/{id}/estado/devolver', [EstadoController::class, 'devolver']);
+    
 });
 
 

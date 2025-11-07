@@ -25,18 +25,25 @@ class PlanSepareController extends Controller
         return response()->json($planes);
     }
 
-public function show(int $id)
-{
-    $plan = PlanSepare::with([
-        'cliente',
-        'inventario',
-        'estado',
-        'abonos.usuario',      // 👈 Trae también el usuario del abono
-        'devoluciones.usuario' // 👈 Opcional, por si luego se muestra
-    ])->findOrFail($id);
+    public function show(int $id)
+    {
+        $plan = PlanSepare::with([
+            'cliente',
+            'inventario',
+            'estado',
+            'abonos.usuario',
+            'devoluciones.usuario',
+        ])->findOrFail($id);
 
-    return response()->json($plan);
-}
+        // ✅ Obtener el monto devuelto (última devolución registrada)
+        $ultimaDevolucion = $plan->devoluciones->sortByDesc('created_at')->first();
+        $plan->monto_devuelto = $ultimaDevolucion?->monto_devuelto ?? 0;
+
+        // ✅ También podrías incluir datos del usuario que devolvió (si quieres mostrarlo)
+        $plan->usuario_devolucion = $ultimaDevolucion?->usuario?->name ?? null;
+
+        return response()->json($plan);
+    }
 
 
     public function store(Request $request)
@@ -67,17 +74,18 @@ public function show(int $id)
 
     public function anular(Request $request, int $id)
     {
-        $request->validate([
+        $validated = $request->validate([
             'motivo' => 'nullable|string|max:255',
+            'motivo_anulacion_id' => 'nullable|exists:motivos_anulacion_plansepare,id',
             'porcentaje_devolucion' => 'nullable|numeric|min:0|max:100',
-            'forma_pago_id' => 'required|integer|exists:formas_pago,id',
+            'forma_pago_id' => 'nullable|integer|exists:formas_pago,id',
             'observaciones' => 'nullable|string|max:255',
         ]);
 
         $usuarioId = Auth::id();
 
         try {
-            $resultado = $this->planService->anularPlan($id, $request->all(), $usuarioId);
+            $resultado = $this->planService->anularPlan($id, $validated, $usuarioId);
             return response()->json($resultado);
         } catch (\Throwable $e) {
             return response()->json([

@@ -78,7 +78,7 @@ class EntradasProductoController extends Controller
                     ], 404);
                 }
 
-                // ✅ Regla 1: si el tipo de inventario es individual → solo una unidad
+                // ✅ Regla 1: equipos individuales no pueden ingresar más de una unidad
                 if ($inventario->tipo_inventario_id == 1 && $item['cantidad'] > 1) {
                     DB::rollBack();
                     return response()->json([
@@ -86,16 +86,16 @@ class EntradasProductoController extends Controller
                     ], 422);
                 }
 
-                // ✅ Regla 2: evitar duplicar equipos individuales activos
-                if ($inventario->tipo_inventario_id == 1 && $inventario->estado_inventario_id == 1) {
+                // ✅ Regla 2: si ya tiene stock > 0 o una entrada anterior, no permitir duplicar ingreso
+                if ($inventario->tipo_inventario_id == 1) {
                     $entradaExistente = DB::table('entradas_producto_items')
                         ->where('inventario_id', $inventario->id)
                         ->exists();
 
-                    if ($entradaExistente) {
+                    if ($entradaExistente || $inventario->stock > 0) {
                         DB::rollBack();
                         return response()->json([
-                            'message' => "El producto '{$inventario->nombre}' ya tiene una entrada registrada y es individual/activo. No se permite duplicar entradas.",
+                            'message' => "El producto '{$inventario->nombre}' ya tiene una entrada o stock disponible. No se permite duplicar ingresos para equipos individuales.",
                         ], 409);
                     }
                 }

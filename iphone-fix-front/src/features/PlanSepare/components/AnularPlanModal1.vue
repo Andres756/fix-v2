@@ -309,7 +309,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import { toast } from 'vue3-toastify'
-import type { PlanSepare } from '../types/planSepare'
+import type { PlanSepare, MotivoAnulacion } from '../types/planSepare'
 import type { FormaPago } from '../../Facturacion/types/factura'
 import { getPlanSepare, fetchMotivosAnulacion, anularPlanSepare } from '../api/planSepare'
 import { fetchFormasPago } from '../../Facturacion/api/facturacion'
@@ -328,7 +328,7 @@ const emit = defineEmits<{
 const isLoading = ref(false)
 const isSubmitting = ref(false)
 const plan = ref<PlanSepare | null>(null)
-const motivosAnulacion = ref<Array<{ id: number; nombre: string; descripcion?: string }>>([])
+const motivosAnulacion = ref<MotivoAnulacion[]>([])
 const formasPago = ref<FormaPago[]>([])
 
 // 📋 Formulario
@@ -368,21 +368,11 @@ async function loadData() {
       fetchFormasPago()
     ])
     
-    console.log('📦 Plan data:', planData)
-    console.log('📋 Motivos data:', motivosData)
-    console.log('💳 Formas pago data:', formasPagoData)
-    
     plan.value = planData
     motivosAnulacion.value = motivosData
     formasPago.value = formasPagoData
-    
-    console.log('✅ Estados actualizados:', {
-      plan: plan.value,
-      motivos: motivosAnulacion.value,
-      formas: formasPago.value
-    })
   } catch (error: any) {
-    console.error('❌ Error cargando datos:', error)
+    console.error('Error cargando datos:', error)
     toast.error('No se pudo cargar la información necesaria.')
     plan.value = null
   } finally {
@@ -422,32 +412,13 @@ async function handleSubmit() {
 
   isSubmitting.value = true
   try {
-    const response = await anularPlanSepare(props.planId, payload)
-    
-    console.log('📦 Respuesta COMPLETA:', response)
-    console.log('📦 Tipo de response:', typeof response)
-    console.log('🔑 Keys disponibles:', Object.keys(response))
-    console.log('📄 response.data:', response.data)
-    console.log('💰 response.devolucion:', response.devolucion)
-    console.log('💰 response.data?.devolucion:', response.data?.devolucion)
-    console.log('📦 JSON completo:', JSON.stringify(response, null, 2))
-    
-    // Intentar acceder a devolucion en diferentes ubicaciones
-    const devolucion = response.devolucion || response.data?.devolucion
-    
-    // Mensaje personalizado según si hubo devolución
-    if (devolucion && devolucion.monto_devuelto > 0) {
-      toast.success(`✅ Plan anulado con devolución de $${devolucion.monto_devuelto.toLocaleString('es-CO')}`)
-    } else {
-      toast.success('✅ Plan separe anulado correctamente')
-    }
-    
+    await anularPlanSepare(props.planId, payload)
+    toast.success('✅ Plan separe anulado correctamente')
     emit('success')
     emit('close')
   } catch (error: any) {
     console.error('Error anulando plan:', error)
-    const errorMessage = error.message || error?.response?.data?.message || 'Error al anular el plan'
-    toast.error(errorMessage)
+    toast.error(error?.response?.data?.message || 'Error al anular el plan')
   } finally {
     isSubmitting.value = false
   }

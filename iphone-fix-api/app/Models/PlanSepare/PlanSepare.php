@@ -26,7 +26,8 @@ class PlanSepare extends Model
         'estado_id',
         'factura_id',
         'usuario_id',
-        'observaciones'
+        'observaciones',
+        'motivo_anulacion_id'
     ];
 
     // Relaciones principales
@@ -87,5 +88,11 @@ class PlanSepare extends Model
     {
         return $this->hasMany(DevolucionPlanSepare::class, 'plan_separe_id');
     }
+
+    public function motivoAnulacion()
+    {
+        return $this->belongsTo(\App\Models\PlanSepare\MotivoAnulacionPlanSepare::class, 'motivo_anulacion_id');
+    }
+
 
 }

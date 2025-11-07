@@ -151,13 +151,15 @@
 
                   <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <p class="text-xs text-gray-500 mb-1">Devolución</p>
-                    <p class="text-sm font-medium text-gray-900">
-                      {{
-                        plan.monto_devuelto
+                      <p class="text-sm font-medium text-gray-900">
+                        {{ plan.monto_devuelto
                           ? `$${Number(plan.monto_devuelto).toLocaleString('es-CO')}`
-                          : '-'
-                      }}
-                    </p>
+                          : '-' }}
+                      </p>
+
+                      <p v-if="plan.usuario_devolucion" class="text-xs text-gray-500">
+                        Procesado por: <span class="font-medium">{{ plan.usuario_devolucion }}</span>
+                      </p>
                   </div>
                 </div>
 

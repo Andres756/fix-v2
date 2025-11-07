@@ -202,3 +202,9 @@ export const EstadoPlanSepareLabels: Record<number, string> = {
   5: 'Cancelado',
   6: 'Devuelto'
 }
+
+export interface MotivoAnulacion {
+  id: number
+  nombre: string
+  descripcion?: string
+}

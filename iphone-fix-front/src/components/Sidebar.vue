@@ -20,7 +20,7 @@
             </svg>
           </div>
           <div class="logo-text">
-            <h2>Tienda Apple</h2>
+            <h2>Iphone FIX</h2>
             <span>Sistema de Gestión</span>
           </div>
         </div>
@@ -166,7 +166,7 @@
               </router-link>
             </li>
 
-            <!-- Usuarios - Rosa -->
+            <!-- Usuarios - Rosa 
             <li class="nav-item" :class="{ active: activeRoute === 'usuarios' }">
               <router-link to="/usuarios" class="nav-link nav-link-usuarios" @click="handleNavClick">
                 <div class="nav-icon pink-icon">
@@ -179,6 +179,7 @@
                 <div class="nav-indicator pink-indicator" v-if="activeRoute === 'usuarios'"></div>
               </router-link>
             </li>
+            -->
           </ul>
         </div>
       </nav>

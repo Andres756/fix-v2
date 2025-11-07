@@ -155,7 +155,6 @@
     <CrearPlanModal
       :open="showCrearModal"
       @close="showCrearModal = false"
-      @created="handlePlanCreado"
     />
 
     <DetallePlanModal
@@ -168,7 +167,7 @@
       :open="showAbonoModal"
       :planId="planIdSeleccionado"
       @close="showAbonoModal = false"
-      @success="handleAbonoRegistrado"
+      @success="handleAbonoSuccess"
     />
 
     <AnularPlanModal
@@ -303,11 +302,11 @@ function limpiarFiltros() {
   loadPlanes()
 }
 
-// Handlers de eventos
-function handlePlanCreado(plan: PlanSepare) {
-  toast.success(`Plan ${plan.codigo} creado exitosamente`)
-  loadPlanes()
+async function handleAbonoSuccess() {
+  showAbonoModal.value = false
+  await loadPlanes() // 👈 vuelve a cargar la lista actualizada
 }
+
 
 function handleVerDetalle(planId: number) {
   planIdSeleccionado.value = planId
@@ -317,11 +316,6 @@ function handleVerDetalle(planId: number) {
 function handleRegistrarAbono(planId: number) {
   planIdSeleccionado.value = planId
   showAbonoModal.value = true
-}
-
-function handleAbonoRegistrado() {
-  toast.success('Abono registrado correctamente')
-  loadPlanes()
 }
 
 function handleAnular(planId: number) {
