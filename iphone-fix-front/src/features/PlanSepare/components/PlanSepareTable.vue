@@ -1,6 +1,6 @@
 <template>
   <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-    <!-- Header de la tabla -->
+    <!-- Header -->
     <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
       <div class="flex items-center justify-between">
         <h3 class="text-lg font-semibold text-gray-900">Lista de Planes Separe</h3>
@@ -27,51 +27,33 @@
       </div>
     </div>
 
-    <!-- Tabla con datos -->
+    <!-- Tabla -->
     <div v-else-if="planes.length > 0" class="overflow-x-auto">
       <table class="w-full">
         <thead class="bg-gray-50 border-b border-gray-200">
           <tr>
-            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-              Código
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-              Cliente
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-              Producto
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-              Precio
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-              Progreso
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-              Estado
-            </th>
-            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-              Fecha Límite
-            </th>
-            <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-              Acciones
-            </th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Código</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Cliente</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Producto</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Precio</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Progreso</th>
+<th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+  Estado
+</th>
+
+            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Fecha creación</th>
+            <th class="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Acciones</th>
           </tr>
         </thead>
+
         <tbody class="divide-y divide-gray-200">
-          <tr
-            v-for="plan in planes"
-            :key="plan.id"
-            class="hover:bg-gray-50 transition-colors"
-          >
+          <tr v-for="plan in planes" :key="plan.id" class="hover:bg-gray-50 transition-colors">
             <!-- Código -->
             <td class="px-6 py-4 whitespace-nowrap">
               <div class="text-sm font-medium text-gray-900">
-                {{ plan.codigo }}
+                {{ plan.codigo || `PLAN-${plan.id}` }}
               </div>
-              <div class="text-xs text-gray-500">
-                ID: {{ plan.id }}
-              </div>
+              <div class="text-xs text-gray-500">ID: {{ plan.id }}</div>
             </td>
 
             <!-- Cliente -->
@@ -79,9 +61,7 @@
               <div class="text-sm font-medium text-gray-900">
                 {{ plan.cliente?.nombre }}
               </div>
-              <div class="text-xs text-gray-500">
-                {{ plan.cliente?.documento }}
-              </div>
+              <div class="text-xs text-gray-500">{{ plan.cliente?.documento }}</div>
             </td>
 
             <!-- Producto -->
@@ -89,9 +69,7 @@
               <div class="text-sm font-medium text-gray-900">
                 {{ plan.inventario?.nombre }}
               </div>
-              <div class="text-xs text-gray-500">
-                {{ plan.inventario?.codigo }}
-              </div>
+              <div class="text-xs text-gray-500">{{ plan.inventario?.codigo }}</div>
             </td>
 
             <!-- Precio -->
@@ -108,46 +86,38 @@
             <td class="px-6 py-4">
               <div class="space-y-1">
                 <div class="flex items-center justify-between text-xs">
-                  <span class="text-gray-600">{{ plan.porcentaje_abonado || 0 }}%</span>
+                  <span class="text-gray-600">
+                    {{ calcularProgreso(plan).toFixed(1) }}%
+                  </span>
                   <span class="font-medium text-gray-900">
-                    ${{ Number(plan.total_abonado || 0).toLocaleString('es-CO') }}
+                    ${{ Number(plan.total_abonos || 0).toLocaleString('es-CO') }}
                   </span>
                 </div>
                 <div class="w-full bg-gray-200 rounded-full h-2">
                   <div
                     class="h-2 rounded-full transition-all duration-300"
-                    :class="getProgressColor(plan.porcentaje_abonado || 0, plan.porcentaje_minimo)"
-                    :style="{ width: `${Math.min(plan.porcentaje_abonado || 0, 100)}%` }"
+                    :class="getProgressColor(calcularProgreso(plan), plan.porcentaje_minimo)"
+                    :style="{ width: `${calcularProgreso(plan)}%` }"
                   ></div>
                 </div>
                 <div class="text-xs text-gray-500">
-                  Pendiente: ${{ Number(plan.saldo_pendiente || 0).toLocaleString('es-CO') }}
+                  Pendiente: ${{ Number(plan.precio_total - plan.total_abonos).toLocaleString('es-CO') }}
                 </div>
               </div>
             </td>
 
             <!-- Estado -->
-            <td class="px-6 py-4 whitespace-nowrap">
+            <td class="px-6 py-4 whitespace-normal break-words text-center">
               <EstadoPlanBadge
                 :estadoCodigo="plan.estado?.codigo || ''"
                 :estadoNombre="plan.estado?.nombre || 'Sin estado'"
               />
             </td>
 
-            <!-- Fecha Límite -->
+            <!-- Fecha creación -->
             <td class="px-6 py-4 whitespace-nowrap">
               <div class="text-sm text-gray-900">
-                {{ formatDate(plan.fecha_limite) }}
-              </div>
-              <div
-                v-if="diasRestantes(plan.fecha_limite) >= 0"
-                class="text-xs"
-                :class="getDiasRestantesClass(diasRestantes(plan.fecha_limite))"
-              >
-                {{ diasRestantes(plan.fecha_limite) }} días restantes
-              </div>
-              <div v-else class="text-xs text-red-600 font-medium">
-                Vencido
+                {{ formatDate(plan.created_at) }}
               </div>
             </td>
 
@@ -244,6 +214,9 @@ const emit = defineEmits<{
   (e: 'reasignar', planId: number): void
 }>()
 
+/**
+ * 📅 Formatear fecha de creación del plan
+ */
 function formatDate(dateString: string): string {
   if (!dateString) return '-'
   const date = new Date(dateString)
@@ -254,20 +227,19 @@ function formatDate(dateString: string): string {
   })
 }
 
-function diasRestantes(fechaLimite: string): number {
-  if (!fechaLimite) return 0
-  const hoy = new Date()
-  const limite = new Date(fechaLimite)
-  const diff = limite.getTime() - hoy.getTime()
-  return Math.ceil(diff / (1000 * 60 * 60 * 24))
+/**
+ * 📊 Calcular porcentaje de progreso del plan separe
+ */
+function calcularProgreso(plan: PlanSepare): number {
+  const totalAbonos = parseFloat(plan.total_abonos || '0')
+  const total = parseFloat(plan.precio_total || '0')
+  if (!total) return 0
+  return Math.min((totalAbonos / total) * 100, 100)
 }
 
-function getDiasRestantesClass(dias: number): string {
-  if (dias <= 3) return 'text-red-600 font-medium'
-  if (dias <= 7) return 'text-orange-600'
-  return 'text-green-600'
-}
-
+/**
+ * 🎨 Color del progreso según avance
+ */
 function getProgressColor(porcentaje: number, minimo: number): string {
   if (porcentaje >= 100) return 'bg-green-600'
   if (porcentaje >= minimo) return 'bg-blue-600'
@@ -275,6 +247,9 @@ function getProgressColor(porcentaje: number, minimo: number): string {
   return 'bg-orange-500'
 }
 
+/**
+ * ⚙️ Permisos de acciones según estado
+ */
 function puedeAbonar(plan: PlanSepare): boolean {
   const estadosPermitidos = ['ACT', 'ABIERTO', 'ASE', 'ASEGURADO']
   return estadosPermitidos.includes(plan.estado?.codigo?.toUpperCase() || '')

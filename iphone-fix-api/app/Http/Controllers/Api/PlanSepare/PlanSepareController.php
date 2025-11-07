@@ -20,20 +20,24 @@ class PlanSepareController extends Controller
 
     public function index(Request $request)
     {
-        $planes = PlanSepare::with(['cliente', 'inventario', 'estado'])
-            ->orderByDesc('created_at')
-            ->paginate($request->get('per_page', 15));
-
+        $perPage = $request->get('per_page', 15);
+        $planes = $this->planService->listar($perPage);
         return response()->json($planes);
     }
 
-    public function show(int $id)
-    {
-        $plan = PlanSepare::with(['cliente', 'inventario', 'estado', 'abonos', 'devoluciones'])
-            ->findOrFail($id);
+public function show(int $id)
+{
+    $plan = PlanSepare::with([
+        'cliente',
+        'inventario',
+        'estado',
+        'abonos.usuario',      // 👈 Trae también el usuario del abono
+        'devoluciones.usuario' // 👈 Opcional, por si luego se muestra
+    ])->findOrFail($id);
 
-        return response()->json($plan);
-    }
+    return response()->json($plan);
+}
+
 
     public function store(Request $request)
     {

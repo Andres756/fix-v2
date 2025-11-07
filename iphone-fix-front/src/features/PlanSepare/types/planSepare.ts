@@ -35,59 +35,47 @@ export interface FormaPago {
 }
 
 // ========== Plan Separe Principal ==========
+// ========== Plan Separe Principal ==========
 export interface PlanSepare {
   id: number
-  codigo: string
   cliente_id: number
-  cliente?: Cliente
   inventario_id: number
-  inventario?: Inventario
-  
-  // Valores financieros
-  precio_total: number
-  porcentaje_minimo: number
-  porcentaje_abonado: number
-  total_abonado: number
-  saldo_pendiente: number
-  
-  // Estados y control
-  estado_id: EstadoPlanSepare
+  usuario_id: number
+  precio_total: string
+  porcentaje_minimo: string
+  total_abonos?: string | number
+  monto_devuelto?: string | number
+  observaciones?: string | null
+  created_at: string
+  updated_at?: string
+  factura_id?: number | null
+
+  // Relaciones
   estado?: {
     id: number
-    codigo: string
     nombre: string
-    color?: string
-  }
-  factura_id?: number
-  factura?: {
-    id: number
     codigo: string
   }
-  
-  // Fechas
-  fecha_inicio: string
-  fecha_limite: string
-  fecha_asegurado?: string
-  fecha_facturado?: string
-  fecha_cancelacion?: string
-  
-  // Datos adicionales
-  observaciones?: string
-  usuario_id: number
-  usuario?: {
+
+  cliente?: {
     id: number
-    name: string
+    nombre: string
+    documento: string
+    telefono?: string
+    correo?: string
   }
-  
-  // Relaciones
+
+  inventario?: {
+    id: number
+    nombre: string
+    codigo: string
+  }
+
+  // Relaciones completas
   abonos?: AbonoPlanSepare[]
-  devolucion?: DevolucionPlanSepare
-  auditoria?: AuditoriaPlanSepare[]
-  
-  // Timestamps
-  created_at: string
-  updated_at: string
+  devoluciones?: DevolucionPlanSepare[]
 }
+
 
 // ========== Abono ==========
 export interface AbonoPlanSepare {

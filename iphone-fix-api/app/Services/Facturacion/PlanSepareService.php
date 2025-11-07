@@ -495,4 +495,25 @@ class PlanSepareService
             'created_at' => now(),
         ]);
     }
+
+    /**
+ * 📋 Listar planes separe con totales y relaciones principales
+ */
+public function listar(int $perPage = 15)
+{
+    $planes = PlanSepare::with(['cliente', 'inventario', 'estado'])
+        ->withSum('abonos', 'valor') // Calcula la suma total de abonos por plan
+        ->orderByDesc('created_at')
+        ->paginate($perPage);
+
+    // Renombrar el campo 'abonos_sum_valor' a 'total_abonos'
+    $planes->getCollection()->transform(function ($plan) {
+        $plan->total_abonos = (float) ($plan->abonos_sum_valor ?? 0);
+        unset($plan->abonos_sum_valor);
+        return $plan;
+    });
+
+    return $planes;
+}
+
 }

@@ -158,7 +158,27 @@
       @created="handlePlanCreado"
     />
 
-    <!-- TODO: Agregar más modales según avancemos -->
+    <DetallePlanModal
+      :open="showDetalleModal"
+      :planId="planIdSeleccionado"
+      @close="showDetalleModal = false"
+    />
+
+    <RegistrarAbonoModal
+      :open="showAbonoModal"
+      :planId="planIdSeleccionado"
+      @close="showAbonoModal = false"
+      @success="handleAbonoRegistrado"
+    />
+
+    <AnularPlanModal
+      :open="showAnularModal"
+      :planId="planIdSeleccionado"
+      @close="showAnularModal = false"
+      @success="handlePlanAnulado"
+    />
+
+    <!-- TODO: ReasignarPlanModal próximamente -->
   </div>
 </template>
 
@@ -169,11 +189,19 @@ import type { PlanSepare, FiltrosPlanSepare } from '../../features/PlanSepare/ty
 import { fetchPlanesSepare } from '../../features/PlanSepare/api/planSepare'
 import PlanSepareTable from '../../features/PlanSepare/components/PlanSepareTable.vue'
 import CrearPlanModal from '../../features/PlanSepare/components/CrearPlanModal.vue'
+import DetallePlanModal from '../../features/PlanSepare/components/DetallePlanModal.vue'
+import RegistrarAbonoModal from '../../features/PlanSepare/components/RegistrarAbonoModal.vue'
+import AnularPlanModal from '../../features/PlanSepare/components/AnularPlanModal.vue'
+
 
 // Estado
 const planes = ref<PlanSepare[]>([])
 const isLoading = ref(false)
 const showCrearModal = ref(false)
+const showDetalleModal = ref(false)
+const showAbonoModal = ref(false)
+const showAnularModal = ref(false)
+const planIdSeleccionado = ref<number | null>(null)
 
 // Estados disponibles
 const estados = ref([
@@ -282,25 +310,32 @@ function handlePlanCreado(plan: PlanSepare) {
 }
 
 function handleVerDetalle(planId: number) {
-  console.log('Ver detalle del plan:', planId)
-  toast.info('Modal de detalle próximamente...')
-  // TODO: Implementar modal de detalle
+  planIdSeleccionado.value = planId
+  showDetalleModal.value = true
 }
 
 function handleRegistrarAbono(planId: number) {
-  console.log('Registrar abono para plan:', planId)
-  toast.info('Modal de abono próximamente...')
-  // TODO: Implementar modal de abono
+  planIdSeleccionado.value = planId
+  showAbonoModal.value = true
+}
+
+function handleAbonoRegistrado() {
+  toast.success('Abono registrado correctamente')
+  loadPlanes()
 }
 
 function handleAnular(planId: number) {
-  console.log('Anular plan:', planId)
-  toast.info('Modal de anulación próximamente...')
-  // TODO: Implementar modal de anulación
+  planIdSeleccionado.value = planId
+  showAnularModal.value = true
+}
+
+function handlePlanAnulado() {
+  toast.success('Plan anulado exitosamente')
+  loadPlanes()
 }
 
 function handleReasignar(planId: number) {
-  console.log('Reasignar plan:', planId)
+  planIdSeleccionado.value = planId
   toast.info('Modal de reasignación próximamente...')
   // TODO: Implementar modal de reasignación
 }
