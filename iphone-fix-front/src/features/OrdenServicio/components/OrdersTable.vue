@@ -84,19 +84,21 @@
             <!-- Acciones -->
             <td class="px-6 py-4 whitespace-nowrap">
               <div class="flex items-center gap-2">
-                <button
-                  @click="$emit('view', order.id, order.cliente_id || order.cliente?.id)"
-                  class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                  Ver
-                </button>
+              <button
+                @click="emit('view', order.id!, order.cliente_id ?? order.cliente?.id ?? 0)"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                Ver
+              </button>
 
                 <button
-                  @click="$emit('history', order.id, order.cliente_id)"
+                  @click="emit('history', order.id, order.cliente_id)"
                   class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors"
                 >
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -107,7 +109,7 @@
 
                 <!-- NUEVO: Botón Equipos -->
                 <button
-                  @click="$emit('equipos', order.id, order.cliente_id)"
+                  @click="emit('equipos', order.id, order.cliente_id)"
                   class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-violet-700 bg-violet-100 rounded-lg hover:bg-violet-200 transition-colors"
                   title="Gestionar equipos de esta orden"
                 >
@@ -135,7 +137,7 @@
         Aún no se han creado órdenes de servicio. Comienza creando tu primera orden.
       </p>
       <button
-        @click="$emit('create-order')"
+        @click="emit('create-order')"
         class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -154,13 +156,13 @@ type OrdenWithCliente = OrdenServicio & {
   cliente?: { id: number; nombre: string; documento: string }
 }
 
-const props = defineProps<{
+defineProps<{
   orders: OrdenWithCliente[]
   isLoading?: boolean
 }>()
 
-defineEmits<{
-  (e: 'view', orderId: number): void
+const emit = defineEmits<{
+  (e: 'view', orderId: number, clienteId: number): void
   (e: 'history', orderId: number, clienteId: number): void
   (e: 'equipos', orderId: number, clienteId: number): void
   (e: 'create-order'): void

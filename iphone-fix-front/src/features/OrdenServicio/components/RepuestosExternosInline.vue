@@ -66,8 +66,8 @@
           <tr v-for="r in repuestos" :key="r.id" class="border-t">
             <td class="px-3 py-2 text-sm">{{ r.descripcion }}</td>
             <td class="px-3 py-2 text-sm">{{ r.cantidad }}</td>
-            <td class="px-3 py-2 text-sm">{{ money(r.costo_unitario) }}</td>
-            <td class="px-3 py-2 text-sm">{{ money(r.costo_total) }}</td>
+            <td class="px-3 py-2 text-sm">{{ money(Number(r.costo_unitario)) }}</td>
+            <td class="px-3 py-2 text-sm">{{ money(Number(r.costo_total)) }}</td>
             <td class="px-3 py-2 text-right">
               <button class="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
                       @click="eliminar(r.id)">

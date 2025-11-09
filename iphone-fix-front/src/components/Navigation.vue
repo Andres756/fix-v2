@@ -202,8 +202,7 @@ const closeDropdowns     = () => { showNotifications.value = false; showUserMenu
 
 const handleSearch = () => { console.log('Searching for:', searchQuery.value) }
 const markAllAsRead = () => { notifications.value.forEach(n => (n.read = true)) }
-const goToProfile   = () => { closeDropdowns() }
-const goToSettings  = () => { closeDropdowns() }
+
 
 const logout = async () => {
   closeDropdowns()

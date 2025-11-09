@@ -5,7 +5,7 @@
       Total ganado: {{ money(resumen?.total_ganado || 0) }}
     </p>
     <ul class="space-y-1">
-      <li v-for="eq in resumen?.equipos" :key="eq.equipo_id">
+      <li v-for="eq in resumen?.equipos" :key="eq.equipo_os_id">
         {{ eq.modelo }} → {{ money(eq.comision.ganancia) }}
       </li>
     </ul>

@@ -46,3 +46,16 @@ export interface EquipoCostos {
   diferencia: number;
   estado_presupuesto: "superado" | "por_debajo" | "exacto";
 }
+
+export interface UpdateEquipoPayload {
+  id: number
+  marca?: string
+  modelo?: string
+  imei?: string
+  serial?: string
+  observaciones?: string
+  estado_equipo_id?: number
+  cliente_id?: number
+  orden_servicio_id?: number
+  // agrega los campos que puedan actualizarse
+}

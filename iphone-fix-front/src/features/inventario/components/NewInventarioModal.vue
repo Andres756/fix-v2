@@ -238,7 +238,7 @@ import {
 import type { CreateInventarioPayload } from '../api/inventario';
 import type { Option } from '../../../shared/types/common';
 
-const props = defineProps<{ open: boolean }>();
+defineProps<{ open: boolean }>()
 const emit = defineEmits<{ (e: 'close'): void; (e: 'created'): void }>();
 
 // ✅ Estado principal - SIMPLIFICADO (sin estado, proveedor, lote, stock, costo)

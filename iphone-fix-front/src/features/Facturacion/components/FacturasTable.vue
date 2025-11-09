@@ -224,19 +224,19 @@ interface Props {
   isLoading?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   isLoading: false
 })
 
 // Emits
-const emit = defineEmits<{
-  (e: 'view', id: number): void
-  (e: 'print', id: number): void
-  (e: 'pagar', id: number): void
-  (e: 'anular', id: number): void
-  (e: 'convertir', id: number): void
-  (e: 'create-factura'): void
-}>()
+//const emit = defineEmits<{
+//  (e: 'view', id: number): void
+//  (e: 'print', id: number): void
+//  (e: 'pagar', id: number): void
+//  (e: 'anular', id: number): void
+//  (e: 'convertir', id: number): void
+//  (e: 'create-factura'): void
+//}>()
 
 // Helpers de formato (mantén los tuyos aquí)
 const formatMoney = (amount: number): string => {

@@ -123,12 +123,20 @@ watch(() => props.open, async (isOpen) => {
 })
 
 // 📦 Función para cargar la orden
+// 📦 Función para cargar la orden
 async function cargarOrden() {
   try {
     loading.value = true
+
     const res = await fetchOrden(props.clienteId!, props.ordenId!)
-    orden.value = res.data ?? res
-  } catch (error) {
+
+    // ✅ Si tu API devuelve directamente el objeto:
+    orden.value = res
+
+    // 💡 O si a veces devuelve { data: {…} }, usa una validación segura:
+    // orden.value = (res as any).data ?? res
+
+  } catch (error: any) {
     console.error('❌ Error cargando orden:', error)
     toast.error('No se pudo cargar la orden')
   } finally {

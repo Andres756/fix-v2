@@ -157,7 +157,7 @@
                           />
                         </td>
                         <td class="px-4 py-2 text-gray-800">
-                          {{ detalle.descripcion || detalle.producto?.nombre || '—' }}
+                          {{ detalle.descripcion || detalle.inventario?.nombre || '—' }}
                         </td>
                         <td class="px-4 py-2 text-right">{{ detalle.cantidad }}</td>
                         <td class="px-4 py-2 text-right">{{ formatMoney(detalle.precio_unitario || 0) }}</td>
@@ -363,7 +363,7 @@ const handleSubmit = async () => {
     // 🧩 Construcción del payload para anulación avanzada
     const payload = {
       motivo: form.motivo,
-      detalles: selectedDetalles.value,
+      items_anular: selectedDetalles.value, // ✅ renombrado
       acciones: {
         repuestos_internos: 'reutilizables',
         repuestos_externos: 'mantener',
@@ -372,12 +372,10 @@ const handleSubmit = async () => {
       observaciones: form.observaciones || undefined
     }
 
-    console.log('🟢 Enviando payload:', payload)
-
     const response = await anularFacturaAvanzado(props.facturaId!, payload)
 
     // ✅ Mostrar mensaje y cerrar modal con retraso breve
-    toast.success(response?.data?.message || response?.message || 'Anulación procesada correctamente')
+    toast.success(response?.message || 'Anulación procesada correctamente')
 
     setTimeout(() => {
       emit('success')

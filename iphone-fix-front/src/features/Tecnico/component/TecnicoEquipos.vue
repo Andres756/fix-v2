@@ -16,7 +16,7 @@
         </p>
 
         <!-- Tareas -->
-        <TecnicoTareas :tecnicoId="tecnicoId" :tareas="equipo.tareas" />
+        <TecnicoTareas :tecnicoId="tecnicoId" :tareas="equipo.tareas ?? []" />
       </div>
     </div>
   </div>

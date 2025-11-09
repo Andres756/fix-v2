@@ -245,8 +245,7 @@ const onRowCheckChange = (id: number, e: Event) => {
   toggleSelect(id, checked)
 }
 
-
-const props = defineProps<Props>()
+defineProps<Props>()
 
 // Emits
 const emit = defineEmits<{

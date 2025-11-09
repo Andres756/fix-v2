@@ -509,6 +509,8 @@
             </div>
           </div>
         </div>
+
+        
       </div>
     </transition>
   </Teleport>
@@ -557,14 +559,6 @@ const totalRepuestosExternos = ref(0)
 
 // Helpers de equipo actual
 const inlineEquipoImei = computed(() => equipos.value.find(e => e.id === inlineEquipoId.value)?.imei_serial || '')
-const currentEquipoValor = computed(() => {
-  if (!inlineEquipoId.value) return 0
-  const equipo = equipos.value.find(e => e.id === inlineEquipoId.value)
-  return Number(equipo?.valor_estimado || 0)
-})
-const totalGeneral = computed(() =>
-  totalTareas.value + totalRepuestos.value + totalRepuestosExternos.value + currentEquipoValor.value
-)
 
 // ===== Técnicos =====
 const tecnicos = ref<Tecnico[]>([])
@@ -710,7 +704,12 @@ async function guardar() {
     
     if (editingId.value) {
       // Actualizar equipo existente
-      await updateEquipo(props.clienteId, props.ordenId, editingId.value, form.value)
+      await updateEquipo(
+        props.clienteId,
+        props.ordenId,
+        editingId.value,
+        { id: editingId.value, ...form.value }
+      )
       toast.success('¡Equipo actualizado exitosamente! 🎉')
       emit('updated')
       await loadEquipos()
@@ -769,7 +768,4 @@ const formatDate = (date?: string | null) =>
 
 const number = (n?: number | null) =>
   (n == null ? '0.00' : n.toLocaleString('es-CO', { minimumFractionDigits: 2 }))
-
-const money = (n: number) =>
-  n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
 </script>

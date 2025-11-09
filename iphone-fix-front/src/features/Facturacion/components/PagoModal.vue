@@ -247,9 +247,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { toast } from 'vue3-toastify'
-import { fetchPagosFactura, registrarPagos, fetchFormasPago, getFactura } from '../api/facturacion'
+import { registrarPagos, fetchFormasPago, getFactura } from '../api/facturacion'
 import type { FormaPago } from '../types/factura'
 
 // Props
@@ -337,13 +337,13 @@ const loadFacturaInfo = async () => {
   if (!props.facturaId) return
 
   try {
-    // ✅ Llamar al endpoint correcto
     const info = await getFactura(props.facturaId)
     facturaInfo.value = info
 
     // Si el saldo es menor al total, sugerir ese monto
-    if (info.saldo_pendiente > 0 && pagos.value.length > 0) {
-      pagos.value[0].valor = info.saldo_pendiente
+    const saldo = info.saldo_pendiente ?? 0
+    if (saldo > 0 && pagos.value.length > 0) {
+      pagos.value[0].valor = saldo
     }
   } catch (error) {
     console.error('Error loading factura info:', error)

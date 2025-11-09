@@ -22,16 +22,16 @@
       </div>
 
       <!-- Comisión (si está habilitada) -->
-      <div v-if="equipo.comision.habilitada" class="text-right">
+      <div v-if="equipo.comision?.habilitada" class="text-right">
         <div class="bg-green-50 rounded-lg p-3 border border-green-200">
           <p class="text-xs text-green-600 font-medium mb-1">Comisión</p>
           <p class="text-sm font-semibold text-green-700">
-            {{ equipo.comision.tipo === 'porcentaje'
-              ? `${equipo.comision.valor}%`
-              : `$${equipo.comision.valor}` }}
+            {{ equipo.comision?.tipo === 'porcentaje'
+              ? `${equipo.comision?.valor}%`
+              : `$${equipo.comision?.valor}` }}
           </p>
           <p class="text-xs text-green-600">
-            ~${{ equipo.comision.ganancia_estimada.toFixed(2) }}
+            ~${{ equipo.comision?.ganancia_estimada?.toFixed(2) }}
           </p>
         </div>
       </div>
@@ -145,8 +145,8 @@
           :tecnico-id="tecnicoId"
           @updated="$emit('tarea-updated')"
         />
-        <div v-if="!equipo.tareas.length" class="text-center py-4 text-gray-500">
-          No hay tareas asignadas
+        <div v-if="!equipo.tareas?.length" class="text-center py-4 text-gray-500">
+          Sin tareas registradas
         </div>
       </div>
     </transition>

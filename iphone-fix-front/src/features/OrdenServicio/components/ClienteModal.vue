@@ -251,7 +251,7 @@ import { createCliente, type CreateClientePayload } from '../api/clientes'
 import { toast } from 'vue3-toastify'
 import 'vue3-toastify/dist/index.css'
 
-const props = defineProps<{ open: boolean }>()
+defineProps<{ open: boolean }>()
 const emit = defineEmits<{ (e: 'close'): void; (e: 'created', cliente: any): void }>()
 
 const form = ref<CreateClientePayload>({
@@ -316,8 +316,8 @@ function validarDocumento() {
 }
 
 function validarTelefono() {
-  const valor = form.value.telefono.trim()
-  
+  const valor = (form.value.telefono ?? '').trim()
+
   if (!valor) {
     errors.value.telefono = ''
     return
@@ -345,7 +345,7 @@ function validarTelefono() {
 }
 
 function validarCorreo() {
-  const valor = form.value.correo.trim()
+  const valor = (form.value.correo ?? '').trim()
   
   if (!valor) {
     errors.value.correo = ''
@@ -363,7 +363,7 @@ function validarCorreo() {
 }
 
 function validarDireccion() {
-  const valor = form.value.direccion.trim()
+  const valor = (form.value.direccion ?? '').trim()
   
   if (!valor) {
     errors.value.direccion = ''
@@ -380,12 +380,18 @@ function validarDireccion() {
 
 // Computed para verificar si el formulario es válido
 const isFormValid = computed(() => {
+  const nombre = (form.value.nombre ?? '').trim()
+  const documento = (form.value.documento ?? '').trim()
+  const telefono = (form.value.telefono ?? '').trim()
+  const correo = (form.value.correo ?? '').trim()
+  const direccion = (form.value.direccion ?? '').trim()
+
   return (
-    form.value.nombre.trim().length >= 3 &&
-    form.value.documento.trim().length >= 6 &&
-    form.value.telefono.trim().length >= 10 &&
-    form.value.correo.trim().length > 0 &&
-    form.value.direccion.trim().length >= 5 &&
+    nombre.length >= 3 &&
+    documento.length >= 6 &&
+    telefono.length >= 10 &&
+    correo.length > 0 &&
+    direccion.length >= 5 &&
     !errors.value.nombre &&
     !errors.value.documento &&
     !errors.value.telefono &&

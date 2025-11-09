@@ -211,7 +211,7 @@
                       ></div>
                       <div
                         class="h-3 rounded-full transition-all duration-300"
-                        :class="getProgressColor(progreso, plan.porcentaje_minimo)"
+                        :class="getProgressColor(progreso, parseFloat(String(plan.porcentaje_minimo ?? '0')))"
                         :style="{ width: `${progreso}%` }"
                       ></div>
                     </div>
@@ -355,7 +355,10 @@ function formatDate(dateString?: string): string {
  */
 const totalAbonado = computed(() => {
   if (!abonos.value.length) return 0
-  return abonos.value.reduce((sum, abono) => sum + parseFloat(abono.valor || '0'), 0)
+  return abonos.value.reduce(
+    (sum, abono) => sum + parseFloat(String(abono.valor ?? '0')),
+    0
+  )
 })
 
 const saldoPendiente = computed(() => {
@@ -382,6 +385,7 @@ function getProgressColor(porcentaje: number, minimo: number): string {
 .modal-leave-active {
   transition: opacity 0.3s ease;
 }
+
 
 .modal-enter-from,
 .modal-leave-to {

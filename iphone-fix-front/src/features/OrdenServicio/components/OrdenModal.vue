@@ -181,7 +181,7 @@ import { fetchClientes } from '../api/clientes'
 import { toast } from 'vue3-toastify'
 import 'vue3-toastify/dist/index.css'
 
-const props = defineProps<{
+const { open } = defineProps<{
   open: boolean
 }>()
 

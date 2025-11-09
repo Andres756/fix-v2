@@ -12,6 +12,7 @@ export interface FetchInventarioParams {
   tipo_inventario_id?: number | null;
   categoria_id?: number | null;
   estado_inventario_id?: number | null;
+  con_stock?: boolean
 }
 
 /* ====== INVENTARIOS ====== */

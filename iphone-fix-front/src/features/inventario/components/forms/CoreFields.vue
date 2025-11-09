@@ -239,7 +239,7 @@
 <script setup lang="ts">
 const model = defineModel<any>({ required: true })
 
-const props = defineProps<{
+defineProps<{
   tipos: any[]
   categorias: any[]
 }>()

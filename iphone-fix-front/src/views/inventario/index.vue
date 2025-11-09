@@ -554,23 +554,9 @@ async function reload() {
 }
 
 // helpers
-function tipoNombre(id?: number | string) {
-  const key = Number(id);
-  return tipos.value.find(t => t.id === key)?.nombre ?? (id != null ? `#${id}` : '—');
-}
-function estadoNombre(id?: number | string) {
-  const key = Number(id);
-  return estados.value.find(e => e.id === key)?.nombre ?? (id != null ? `#${id}` : 'N/A');
-}
 function currency(v?: number | string) {
   const n = num(v);
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
-}
-function formatDate(s: string | null | undefined) {
-  if (!s) return '—';
-  try {
-    return new Date(s).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: '2-digit' });
-  } catch { return '—'; }
 }
 function clearFilters() {
   search.value = '';

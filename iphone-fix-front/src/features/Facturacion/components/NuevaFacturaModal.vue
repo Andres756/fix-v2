@@ -554,7 +554,7 @@ interface Props {
   open: boolean
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -753,7 +753,7 @@ async function seleccionarOrden(ordenId: number) {
 
     const esFinalizado = estadoPlano.includes('finalizado')
     const estaFacturado = Number(eq.facturado) === 1
-    const estaEntregado = Number(eq.entregado) === 1
+    //const estaEntregado = Number(eq.entregado) === 1
 
     const seleccionado = esFinalizado && !estaFacturado
     const bloqueado = !esFinalizado || estaFacturado
@@ -942,11 +942,13 @@ function formatMoney(amount: number): string {
 // =================== CARGA INICIAL ===================
 onMounted(async () => {
   try {
-    const res = await fetchFormasPago()
-    formasPago.value = res.data || res
+    const res: any = await fetchFormasPago()
+    // si res es arreglo, úsalo; si viene envuelto, toma data
+    formasPago.value = Array.isArray(res) ? res : (res?.data ?? [])
   } catch (error) {
     console.error('Error cargando formas de pago:', error)
     formasPago.value = []
   }
 })
+
 </script>

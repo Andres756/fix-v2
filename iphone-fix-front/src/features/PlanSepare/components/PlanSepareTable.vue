@@ -90,18 +90,27 @@
                     {{ calcularProgreso(plan).toFixed(1) }}%
                   </span>
                   <span class="font-medium text-gray-900">
-                    ${{ Number(plan.total_abonos || 0).toLocaleString('es-CO') }}
+                    ${{ Number(plan.total_abonos ?? 0).toLocaleString('es-CO') }}
                   </span>
                 </div>
+
                 <div class="w-full bg-gray-200 rounded-full h-2">
                   <div
                     class="h-2 rounded-full transition-all duration-300"
-                    :class="getProgressColor(calcularProgreso(plan), plan.porcentaje_minimo)"
+                    :class="getProgressColor(
+                      calcularProgreso(plan),
+                      parseFloat(String(plan.porcentaje_minimo ?? '0'))
+                    )"
                     :style="{ width: `${calcularProgreso(plan)}%` }"
                   ></div>
                 </div>
+
                 <div class="text-xs text-gray-500">
-                  Pendiente: ${{ Number(plan.precio_total - plan.total_abonos).toLocaleString('es-CO') }}
+                  Pendiente:
+                  ${{ (
+                    parseFloat(String(plan.precio_total ?? '0')) -
+                    parseFloat(String(plan.total_abonos ?? '0'))
+                  ).toLocaleString('es-CO') }}
                 </div>
               </div>
             </td>
@@ -231,8 +240,8 @@ function formatDate(dateString: string): string {
  * 📊 Calcular porcentaje de progreso del plan separe
  */
 function calcularProgreso(plan: PlanSepare): number {
-  const totalAbonos = parseFloat(plan.total_abonos || '0')
-  const total = parseFloat(plan.precio_total || '0')
+  const totalAbonos = parseFloat(String(plan.total_abonos ?? '0'))
+  const total = parseFloat(String(plan.precio_total ?? '0'))
   if (!total) return 0
   return Math.min((totalAbonos / total) * 100, 100)
 }

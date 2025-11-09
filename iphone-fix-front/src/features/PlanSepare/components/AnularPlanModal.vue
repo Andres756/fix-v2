@@ -424,16 +424,8 @@ async function handleSubmit() {
   try {
     const response = await anularPlanSepare(props.planId, payload)
     
-    console.log('📦 Respuesta COMPLETA:', response)
-    console.log('📦 Tipo de response:', typeof response)
-    console.log('🔑 Keys disponibles:', Object.keys(response))
-    console.log('📄 response.data:', response.data)
-    console.log('💰 response.devolucion:', response.devolucion)
-    console.log('💰 response.data?.devolucion:', response.data?.devolucion)
-    console.log('📦 JSON completo:', JSON.stringify(response, null, 2))
-    
     // Intentar acceder a devolucion en diferentes ubicaciones
-    const devolucion = response.devolucion || response.data?.devolucion
+    const devolucion = response.devolucion ?? null
     
     // Mensaje personalizado según si hubo devolución
     if (devolucion && devolucion.monto_devuelto > 0) {

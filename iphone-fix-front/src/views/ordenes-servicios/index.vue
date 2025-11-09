@@ -110,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
+import { ref, onMounted, watch, onBeforeUnmount } from 'vue'
 import { toast } from 'vue3-toastify'
 import 'vue3-toastify/dist/index.css'
 
@@ -173,9 +173,6 @@ watch([searchTerm, filterStatus], () => {
 onBeforeUnmount(() => {
   if (debounceId) clearTimeout(debounceId)
 })
-
-// (Si en tu tabla usas 'filteredOrders', puedes dejar este computed passthrough)
-const filteredOrders = computed(() => orders.value)
 
 
 // ---------- Handlers UI/Modales

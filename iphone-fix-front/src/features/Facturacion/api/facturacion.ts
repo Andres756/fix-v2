@@ -1,6 +1,5 @@
 // features/Facturacion/api/facturacion.ts
 import http from '../../../shared/api/http'
-import axios from 'axios'
 import type {
   Factura,
   FiltrosFactura,
@@ -11,7 +10,6 @@ import type {
   RegistrarPagoPayload,
   AnularFacturaPayload,
   PagoFactura,
-  ResumenFacturacion,
   FormaPago
 } from '../types/factura'
 

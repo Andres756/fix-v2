@@ -10,6 +10,8 @@ export interface MiniRef {
 export interface Inventario {
   id: number;
   nombre: string;
+  nombre_detallado?: string | null;
+  precio_final?: number | null;
   nombre_full?: string | null;
   codigo?: string | null;
 

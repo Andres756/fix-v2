@@ -5,9 +5,9 @@ export interface Cliente {
   id: number
   nombre: string
   documento: string
-  telefono?: string
+  telefono?: string | null
   email?: string
-  direccion?: string
+  direccion?: string | null
 }
 
 export interface FormaPago {
@@ -41,6 +41,8 @@ export interface Factura {
     id: number
     name: string
   }
+  direccion?: string
+
   
   // Tipo y estado
   tipo_venta_id: number
@@ -108,7 +110,7 @@ export interface FacturaDetalle {
   cantidad: number
   precio_unitario: number
   descuento: number
-  impuesto: number
+  impuesto: number 
   total: number
   
   // Control

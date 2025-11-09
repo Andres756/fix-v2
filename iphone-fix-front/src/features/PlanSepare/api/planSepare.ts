@@ -13,8 +13,6 @@ import type {
   DevolucionPlanSepare
 } from '../types/planSepare'
 
-import axios from 'axios'
-
 // ===== Helpers para desempaquetar respuestas Laravel =====
 function unwrap<T>(axiosResp: any): T {
   const payload = axiosResp?.data ?? axiosResp
@@ -202,25 +200,10 @@ export async function anularPlanSepare(
   plan: PlanSepare
   devolucion?: DevolucionPlanSepare
 }> {
-  try {
-    const response = await http.patch(`/plan-separe/${planId}/anular`, payload)
-    return response.data
-  } catch (error) {
-    console.error('Error anulando plan separe:', error)
-    
-    const message = error.response?.data?.message || ''
-    
-    if (message.includes('ya está cancelado')) {
-      throw new Error('Este plan ya está cancelado')
-    }
-    
-    if (message.includes('ya está facturado')) {
-      throw new Error('No se puede anular un plan que ya fue facturado')
-    }
-    
-    throw new Error(extractErrorMessage(error))
-  }
+  const response = await http.patch(`/plan-separe/${planId}/anular`, payload)
+  return response.data
 }
+
 
 /**
  * Verificar si se puede anular un plan
@@ -255,10 +238,10 @@ export async function reasignarPlanSepare(
   try {
     const response = await http.patch(`/plan-separe/${planId}/reasignar`, payload)
     return response.data
-  } catch (error) {
-    console.error('Error reasignando plan separe:', error)
-    
-    const message = error.response?.data?.message || ''
+} catch (error: any) {
+  console.error('Error reasignando plan separe:', error)
+  
+  const message = error.response?.data?.message || ''
     
     if (message.includes('no se puede reasignar')) {
       throw new Error('Este plan no se puede reasignar porque ya tiene factura')

@@ -315,7 +315,7 @@ import {
   getFacturaPrintUrl,
   convertirPrefactura
 } from '../../features/Facturacion/api/facturacion'
-import type { Factura, FiltrosFactura, ResumenFacturacion } from '../../features/Facturacion/types/factura'
+import type { Factura, FiltrosFactura } from '../../features/Facturacion/types/factura'
 
 // Estado
 const isLoading = ref(false)

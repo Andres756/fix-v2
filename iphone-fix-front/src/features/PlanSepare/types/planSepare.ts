@@ -1,21 +1,21 @@
 // features/PlanSepare/types/planSepare.ts
 
 // ========== Estados del Plan Separe ==========
-export enum EstadoPlanSepare {
-  ABIERTO = 1,
-  ASEGURADO = 2,
-  FACTURADO = 3,
-  EXPIRADO = 4,
-  CANCELADO = 5,
-  DEVUELTO = 6
-}
+// export enum EstadoPlanSepare {
+//  ABIERTO = 1,
+//  ASEGURADO = 2,
+//  FACTURADO = 3,
+//  EXPIRADO = 4,
+//  CANCELADO = 5,
+//  DEVUELTO = 6
+// }
 
 // ========== Interfaces Base ==========
 export interface Cliente {
   id: number
   nombre: string
   documento: string
-  telefono?: string
+  telefono?: string | null
   email?: string
 }
 
@@ -35,7 +35,6 @@ export interface FormaPago {
 }
 
 // ========== Plan Separe Principal ==========
-// ========== Plan Separe Principal ==========
 export interface PlanSepare {
   id: number
   cliente_id: number
@@ -50,6 +49,10 @@ export interface PlanSepare {
   updated_at?: string
   factura_id?: number | null
 
+  // NUEVAS PROPIEDADES OPCIONALES
+  codigo?: string | null
+  usuario_devolucion?: string | null
+
   // Relaciones
   estado?: {
     id: number
@@ -61,7 +64,7 @@ export interface PlanSepare {
     id: number
     nombre: string
     documento: string
-    telefono?: string
+    telefono?: string | null
     correo?: string
   }
 
@@ -75,7 +78,6 @@ export interface PlanSepare {
   abonos?: AbonoPlanSepare[]
   devoluciones?: DevolucionPlanSepare[]
 }
-
 
 // ========== Abono ==========
 export interface AbonoPlanSepare {
@@ -143,10 +145,10 @@ export interface RegistrarAbonoPayload {
 }
 
 export interface AnularPlanSeparePayload {
-  motivo: string
-  porcentaje_devolucion?: number
-  forma_pago_id?: number
-  observaciones?: string
+  motivo_anulacion_id: number
+  porcentaje_devolucion: number
+  forma_pago_id: number | null
+  observaciones?: string | null
 }
 
 export interface ReasignarPlanSeparePayload {
@@ -207,4 +209,12 @@ export interface MotivoAnulacion {
   id: number
   nombre: string
   descripcion?: string
+}
+
+export interface AnularPlanResponse {
+  message: string
+  plan: any
+  devolucion?: {
+    monto_devuelto: number
+  }
 }

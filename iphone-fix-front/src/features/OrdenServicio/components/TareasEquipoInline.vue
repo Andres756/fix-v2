@@ -58,7 +58,7 @@
               >
                 <option :value="0" disabled>Selecciona un tipo de trabajo...</option>
                 <option v-for="t in tipos" :key="t.id" :value="t.id" class="py-2">
-                  {{ t.nombre }} — {{ money(t.costo_sugerido) }}
+                  {{ t.nombre }} — {{ money(Number(t.costo_sugerido ?? 0)) }}
                 </option>
               </select>
             </div>
@@ -196,7 +196,7 @@ import { ref, watch, computed } from 'vue'
 import { toast } from 'vue3-toastify'
 import 'vue3-toastify/dist/index.css'
 
-import { fetchTareas, createTarea, updateTarea, deleteTarea } from '../api/tareas'
+import { fetchTareas, createTarea, deleteTarea } from '../api/tareas'
 import { fetchTiposTrabajo, type TipoTrabajo } from '../api/tiposTrabajo'
 import type { Tarea, CreateTareaPayload } from '../types/tarea'
 
@@ -224,7 +224,7 @@ const newTask = ref<CreateTareaPayload>({
 
 watch(() => newTask.value.tipo_trabajo_id, id => {
   const trabajo = tipos.value.find(x => x.id === id)
-  newTask.value.costo_aplicado = trabajo ? trabajo.costo_sugerido : null
+  newTask.value.costo_aplicado = trabajo?.costo_sugerido ?? null
 })
 
 const addBlock = ref<HTMLElement | null>(null)

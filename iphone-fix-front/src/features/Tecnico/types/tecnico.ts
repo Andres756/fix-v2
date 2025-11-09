@@ -47,6 +47,10 @@ export interface EquipoAsignado {
     completadas: number
   }
   tareas?: any[]
+
+  // ✅ Campos adicionales que usa el template
+  cliente?: string
+  orden_codigo?: string
 }
 
 export interface DashboardStats {
