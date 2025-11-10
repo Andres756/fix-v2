@@ -77,13 +77,62 @@
                   <div class="space-y-3">
                     <div v-for="(item, index) in form.items" :key="index" class="p-4 border border-gray-200 rounded-lg bg-gray-50">
                       <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                        <div class="md:col-span-5">
-                          <label class="block text-xs text-gray-600 mb-1">Producto *</label>
-                          <select v-model="item.inventario_id" @change="onProductSelect(index)" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-                            <option value="">Seleccione</option>
-                            <option v-for="producto in productos" :key="producto.id" :value="producto.id">{{ producto.nombre }} ({{ producto.codigo }})</option>
-                          </select>
+                    <!-- 🔍 Buscador de producto -->
+                    <div class="md:col-span-5 relative">
+                      <label class="block text-xs text-gray-600 mb-1">Producto *</label>
+
+                      <div class="relative">
+                        <!-- Ícono de búsqueda -->
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <svg
+                            class="h-5 w-5 text-gray-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                            />
+                          </svg>
                         </div>
+                        <!-- Input buscador -->
+                        <input
+                          v-model="item.search"
+                          @input="buscarProductos(index)"
+                          type="text"
+                          placeholder="Buscar por nombre o código..."
+                          class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg
+                                focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                          autocomplete="off"
+                          required
+                        />
+
+                        <!-- Resultados -->
+                        <ul
+                          v-if="item.resultados?.length > 0 && item.search"
+                          class="absolute left-0 right-0 bg-white border border-gray-200 rounded-lg mt-1
+                                w-full max-h-56 overflow-y-auto shadow-lg z-50"
+                        >
+                          <li
+                            v-for="p in item.resultados"
+                            :key="p.id"
+                            @click="seleccionarProducto(index, p)"
+                            class="px-4 py-3 hover:bg-green-50 cursor-pointer border-b border-gray-100
+                                  last:border-b-0 transition-colors"
+                          >
+                            <div class="font-medium text-gray-900">{{ p.nombre }}</div>
+                            <div class="text-sm text-gray-500">{{ p.codigo }}</div>
+                            <div class="text-xs text-gray-400">
+                              $ {{ formatMoney(p.precio || p.costo_mayor || 0) }}
+                            </div>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+
                         <div class="md:col-span-2">
                           <label class="block text-xs text-gray-600 mb-1">Cantidad *</label>
                           <input v-model.number="item.cantidad" type="number" min="1" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"/>
@@ -158,20 +207,56 @@
 import { ref, reactive, watch } from 'vue'
 import { toast } from 'vue3-toastify'
 import { createEntradaInventario } from '../api/inventoryEntries'
-import { 
-  fetchInventario, 
+import {  
   fetchLotesOptions, 
   fetchMotivosIngresoOptions,
   fetchProveedoresOptions  // ✅ AGREGAR
 } from '../api/inventario'
 import type { Inventario } from '../types/inventario'
+import { fetchInventario } from '../api/inventario'
 import type { Option } from '../../../shared/types/common'
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat('es-CO', { style: 'decimal', maximumFractionDigits: 2 }).format(value)
+}
 
 interface FormItem {
   inventario_id: number | string
   cantidad: number
   costo_unitario: number
+  search: string
+  resultados: any[]
 }
+
+
+const buscarProductos = async (index: number) => {
+  const query = form.items[index].search?.trim() || ''
+
+  if (query.length < 2) {
+    form.items[index].resultados = []
+    return
+  }
+
+  try {
+    const res = await fetchInventario({ q: query, per_page: 5 })
+    console.log('📦 Resultados:', res.data) // ✅ aquí sí
+    form.items[index].resultados = res.data || []
+  } catch (error) {
+    console.error('❌ Error buscando productos:', error)
+    form.items[index].resultados = []
+  }
+}
+
+
+const seleccionarProducto = (index: number, producto: any) => {
+  form.items[index].inventario_id = producto.id
+  form.items[index].search = `${producto.nombre} (${producto.codigo})`
+  form.items[index].resultados = []
+  form.items[index].costo_unitario = Number(
+    producto.costo_mayor || producto.precio || 0
+  )
+}
+
 
 const props = defineProps<{ isOpen: boolean }>()
 const emit = defineEmits<{ (e: 'close'): void; (e: 'success'): void }>()
@@ -184,7 +269,7 @@ const proveedores = ref<Option[]>([])  // ✅ AGREGAR
 const isSubmitting = ref(false)
 
 const form = reactive({
-  proveedor_id: '',  // ✅ AGREGAR
+  proveedor_id: '',
   motivo_ingreso_id: '',
   lote_id: '',
   fecha_entrada: new Date().toISOString().split('T')[0],
@@ -210,16 +295,16 @@ const fetchData = async () => {
   }
 }
 
-const onProductSelect = (index: number) => {
-  const producto = productos.value.find(p => p.id === Number(form.items[index].inventario_id))
-  if (producto && producto.costo) {
-    form.items[index].costo_unitario = Number(producto.costo)
-  }
+const addItem = () => {
+  form.items.push({
+    inventario_id: '',
+    cantidad: 1,
+    costo_unitario: 0,
+    search: '',
+    resultados: []
+  })
 }
 
-const addItem = () => {
-  form.items.push({ inventario_id: '', cantidad: 1, costo_unitario: 0 })
-}
 
 const removeItem = (index: number) => {
   form.items.splice(index, 1)
@@ -249,6 +334,7 @@ const handleSubmit = async () => {
     const hasInvalidItems = form.items.some(
       item => !item.inventario_id || item.cantidad <= 0 || item.costo_unitario < 0
     )
+    console.log('🧾 FORM ENVIADO:', JSON.parse(JSON.stringify(form)))
     
     if (hasInvalidItems) {
       toast.warning('Por favor complete todos los campos de productos correctamente')
@@ -292,13 +378,22 @@ const handleSubmit = async () => {
 }
 
 const resetForm = () => {
-  form.proveedor_id = ''  // ✅ AGREGAR
+  form.proveedor_id = ''
   form.motivo_ingreso_id = ''
   form.lote_id = ''
   form.fecha_entrada = new Date().toISOString().split('T')[0]
   form.observaciones = ''
-  form.items = [{ inventario_id: '', cantidad: 1, costo_unitario: 0 }]
+  form.items = [
+    {
+      inventario_id: '',
+      cantidad: 1,
+      costo_unitario: 0,
+      search: '',
+      resultados: []
+    }
+  ]
 }
+
 
 const closeModal = () => {
   resetForm()

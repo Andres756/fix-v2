@@ -67,7 +67,7 @@
             <div>
               <h3 class="text-md font-semibold text-gray-900 mb-3 flex items-center gap-2">
                 <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                         d="M9 12h6m-6 4h6m-9-8h12M4 6h16M4 18h16" />
                 </svg>
                 Detalles de Factura
@@ -81,21 +81,27 @@
                       <th class="text-center px-4 py-2">Cantidad</th>
                       <th class="text-right px-4 py-2">Valor unitario</th>
                       <th class="text-right px-4 py-2">Total</th>
-                       <th class="text-center px-4 py-2">Entregado</th>
+                      <th class="text-center px-4 py-2">Entregado</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="d in factura.detalles" :key="d.id" class="border-t border-gray-100">
+                    <tr v-for="d in factura.detalles" :key="d.id" 
+                        :class="{
+                          'opacity-60 line-through text-gray-500 bg-gray-50': d.estado?.codigo === 'ANUL'
+                        }" 
+                        class="border-t border-gray-100">
                       <td class="px-4 py-2">{{ d.descripcion }}</td>
                       <td class="px-4 py-2 text-center">{{ d.cantidad }}</td>
                       <td class="px-4 py-2 text-right">{{ formatMoney(d.valor_unitario) }}</td>
                       <td class="px-4 py-2 text-right font-semibold">{{ formatMoney(d.total) }}</td>
+
                       <td class="px-4 py-2 text-center">
                         <input
                           type="checkbox"
-                          :checked="!!d.entregado"
-                          disabled
-                          class="accent-green-600 w-4 h-4 cursor-not-allowed"
+                          v-model="d.entregado"
+                          :disabled="factura.saldo_pendiente > 0 && !confirmarEntrega" 
+                          class="accent-green-600 w-4 h-4 cursor-pointer"
+                          @change="handleEntregaChange(d)" 
                         />
                       </td>
                     </tr>
@@ -104,6 +110,22 @@
               </div>
               <div v-else class="text-center text-sm text-gray-500 py-4">
                 No hay detalles registrados
+              </div>
+            </div>
+
+            <!-- Modal de Confirmación de Entrega -->
+            <div v-if="confirmarEntrega" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50">
+              <div class="bg-white rounded-xl shadow-lg w-80 p-6">
+                <h3 class="text-lg font-semibold mb-4">Confirmar entrega</h3>
+                <p class="text-sm mb-4">La factura tiene saldo pendiente. ¿Está seguro de que desea entregar este producto?</p>
+                <div class="flex justify-between gap-2">
+                  <button @click="confirmarEntrega = false; procederConEntrega()" class="px-4 py-2 bg-blue-600 text-white rounded-lg">
+                    Sí
+                  </button>
+                  <button @click="confirmarEntrega = false" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg">
+                    No
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -221,8 +243,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { toast } from 'vue3-toastify'
-import { getFactura, fetchPagosFactura, fetchMotivosAnulacion, anularPagoFactura } from '../api/facturacion'
-
+import { getFactura, fetchPagosFactura, fetchMotivosAnulacion, anularPagoFactura, entregarFactura } from '../api/facturacion'
 
 // Props
 const props = defineProps<{
@@ -313,5 +334,77 @@ async function confirmarAnulacion() {
     console.error(error)
   }
 }
-</script>
 
+// Función para manejar el cambio en el checkbox de entrega
+function handleEntregaChange(d: any) {
+  if (factura.value.saldo_pendiente > 0 && !confirmarEntrega.value) {
+    // Si hay saldo pendiente, mostrar el modal de confirmación
+    confirmarEntrega.value = true;
+  } else {
+    // Si no hay saldo pendiente, proceder con la entrega
+    procederConEntrega(d);
+  }
+}
+
+const confirmarEntrega = ref(false); // Modal de confirmación de entrega
+
+// Mostrar modal de confirmación cuando hay saldo pendiente
+async function entregarProductos(detalle: any) {
+  const payload = {
+    entregas: [
+      {
+        detalle_id: detalle.id,  // ID de cada detalle
+      }
+    ]
+  };
+
+  // Si la factura tiene saldo pendiente, mostrar el modal de confirmación
+  if (factura.value.saldo_pendiente > 0) {
+    confirmarEntrega.value = true;
+    return;
+  }
+
+  // Proceder con la entrega
+  await procederConEntrega(payload);
+}
+
+// Función para proceder con la entrega de productos después de la confirmación
+async function procederConEntrega(d: any) {
+  const payload = {
+    entregas: [
+      {
+        detalle_id: d.id,  // ID del detalle de la factura
+      }
+    ]
+  };
+
+  try {
+    // Llamar a la API para registrar la entrega
+    const response = await entregarFactura(factura.value.id, payload);
+    toast.success('Producto entregado correctamente');
+    await cargarFactura(factura.value.id); // Refrescar los datos después de la entrega
+  } catch (error) {
+    toast.error('Error al registrar la entrega');
+  }
+}
+
+// Función para confirmar entrega desde el modal
+async function confirmarEntregaModal() {
+  const payload = {
+    entregas: factura.value.detalles
+      .filter(item => item.entregado)  // Solo los ítems entregados
+      .map(item => ({
+        detalle_id: item.id,  // ID de cada detalle
+      }))
+  };
+
+  try {
+    // Procedemos con la entrega si el usuario confirma
+    await procederConEntrega(payload);
+    confirmarEntrega.value = false;  // Cerrar modal de confirmación
+  } catch (error) {
+    toast.error('Error al procesar la entrega');
+  }
+}
+
+</script>

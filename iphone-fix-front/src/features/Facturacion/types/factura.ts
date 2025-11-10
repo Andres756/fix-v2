@@ -48,8 +48,10 @@ export interface Factura {
   tipo_venta_id: number
   tipo_venta?: TipoVenta
   estado_id: number
-  estado?: EstadoFactura
-  
+  estado?: {
+    codigo: string;
+    nombre: string;
+  };
   // Montos
   subtotal: number
   impuestos: number
@@ -84,7 +86,7 @@ export interface Factura {
   updated_at: string
 }
 
-// ========== Detalle de Factura ==========
+// ========== Detalle de Factura ===========
 export interface FacturaDetalle {
   id: number
   factura_id: number
@@ -110,12 +112,17 @@ export interface FacturaDetalle {
   cantidad: number
   precio_unitario: number
   descuento: number
-  impuesto: number 
+  impuesto: number
   total: number
   
   // Control
   tipo: 'producto' | 'servicio' | 'repuesto'
   created_at: string
+
+  // Nuevo campo para controlar el estado
+  estado?: {
+    codigo: string;
+  };
 }
 
 // ========== Pagos ==========

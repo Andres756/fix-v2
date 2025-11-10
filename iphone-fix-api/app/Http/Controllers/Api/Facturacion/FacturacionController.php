@@ -252,29 +252,35 @@ class FacturacionController extends Controller
     }
 
     /**
-     * 📄 Mostrar detalle de una factura (con saldo recalculado)
+     * 📄 Mostrar detalle de una factura (con totales y saldo recalculados)
      */
     public function show($id)
     {
-        // 🔹 Cargar factura con sus relaciones
-        $factura = \App\Models\Facturacion\Factura::with([
+        // 🔹 Cargar factura con todas sus relaciones relevantes
+        $factura = Factura::with([
             'cliente',
             'usuario',
             'estado',
-            'detalles',
+            'detalles.estado', // ✅ incluir estado del detalle
             'pagos.formaPago',
             'pagos.usuario'
         ])->findOrFail($id);
+
+        // 🔹 Calcular total real (solo ítems activos)
+        $totalReal = $factura->detalles()
+            ->whereHas('estado', fn($q) => $q->where('codigo', '!=', 'ANUL'))
+            ->sum('total');
 
         // 🔹 Calcular total pagado (solo pagos activos)
         $totalPagado = $factura->pagos()
             ->where('estado', '!=', 'anulado')
             ->sum('valor');
 
-        // 🔹 Calcular saldo pendiente
-        $saldoPendiente = max($factura->total - $totalPagado, 0);
+        // 🔹 Calcular saldo pendiente basado en el total real
+        $saldoPendiente = max($totalReal - $totalPagado, 0);
 
         // 🔹 Asignar campos dinámicos (sin tocar base de datos)
+        $factura->total = $totalReal;
         $factura->total_pagado = $totalPagado;
         $factura->saldo_pendiente = $saldoPendiente;
 
@@ -285,9 +291,9 @@ class FacturacionController extends Controller
             'cliente' => $factura->cliente,
             'usuario' => $factura->usuario,
             'estado' => $factura->estado,
-            'total' => $factura->total,
             'fecha_emision' => $factura->fecha_emision,
             'subtotal' => $factura->subtotal,
+            'total' => $totalReal, // ✅ actualizado
             'total_pagado' => $totalPagado,
             'saldo_pendiente' => $saldoPendiente,
             'detalles' => $factura->detalles,
@@ -303,7 +309,7 @@ class FacturacionController extends Controller
         \DB::beginTransaction();
         try {
             $usuarioId = \Auth::id();
-            $factura = \App\Models\Facturacion\Factura::with(['detalles','estado'])->findOrFail($id);
+            $factura = Factura::with(['detalles','estado'])->findOrFail($id);
 
             // 1) No permitir doble anulación
             if ($factura->estado?->codigo === 'ANUL') {
@@ -311,7 +317,7 @@ class FacturacionController extends Controller
             }
 
             // 2) Estado ANUL
-            $estadoAnul = \App\Models\Facturacion\EstadoFactura::where('codigo', 'ANUL')->firstOrFail();
+            $estadoAnul = EstadoFactura::where('codigo', 'ANUL')->firstOrFail();
 
             // 3) Marcar factura anulada y no entregada
             $factura->update([
@@ -320,12 +326,12 @@ class FacturacionController extends Controller
             ]);
 
             // 4) Revertir entrega de cada detalle (los triggers se encargarán del inventario solo si es "producto")
-            \App\Models\Facturacion\FacturaDetalle::where('factura_id', $factura->id)
+            FacturaDetalle::where('factura_id', $factura->id)
                 ->update(['entregado' => 0]);
 
             // 5) Si es factura de OS: revertir flags del/los equipos asociados
             if ($factura->orden_servicio_id) {
-                $equiposIds = \App\Models\Facturacion\FacturaDetalle::where('factura_id', $factura->id)
+                $equiposIds = FacturaDetalle::where('factura_id', $factura->id)
                     ->where('tipo_item', 'orden_servicio_equipo')
                     ->whereNotNull('referencia_id')
                     ->pluck('referencia_id')
@@ -333,7 +339,7 @@ class FacturacionController extends Controller
                     ->toArray();
 
                 if (!empty($equiposIds)) {
-                    \App\Models\OrdenServicio\EquipoOrdenServicio::whereIn('id', $equiposIds)
+                    EquipoOrdenServicio::whereIn('id', $equiposIds)
                         ->update([
                             'entregado' => 0,
                             'facturado' => 0,
@@ -342,7 +348,7 @@ class FacturacionController extends Controller
             }
 
             // 6) Auditoría
-            \App\Models\Facturacion\FacturaAuditoria::create([
+            FacturaAuditoria::create([
                 'factura_id' => $factura->id,
                 'usuario_id' => $usuarioId,
                 'accion'     => 'ANULAR',
@@ -433,12 +439,21 @@ class FacturacionController extends Controller
             return response()->json(['message' => 'No se puede entregar una factura anulada.'], 422);
         }
 
+        // 🚨 Validar si la factura está pagada
+        if ($factura->estado?->codigo !== '2') {
+            // Si la factura no está pagada, preguntar si el usuario quiere entregar el producto a pesar del saldo pendiente
+            return response()->json([
+                'message' => 'La factura tiene saldo pendiente. ¿Está seguro de que desea entregar este producto?',
+                'confirmar_entrega' => true  // Este campo puede ser utilizado en el frontend para confirmar la entrega
+            ], 400);
+        }
+
         DB::beginTransaction();
         try {
             $entregas = $request->input('entregas', []);
             $entregados = [];
 
-            // Si se especifican ítems
+            // Si se especifican ítems para entregar
             if (!empty($entregas)) {
                 $ids = collect($entregas)->pluck('detalle_id')->toArray();
                 FacturaDetalle::whereIn('id', $ids)
@@ -446,7 +461,7 @@ class FacturacionController extends Controller
                     ->update(['entregado' => 1]);
                 $entregados = $ids;
             } else {
-                // Entrega total
+                // Entrega total (marcar todos los ítems como entregados)
                 FacturaDetalle::where('factura_id', $factura->id)
                     ->where('entregado', 0)
                     ->update(['entregado' => 1]);
@@ -454,7 +469,7 @@ class FacturacionController extends Controller
                 $entregados = $factura->detalles->where('entregado', 0)->pluck('id')->toArray();
             }
 
-            // Si todos los detalles están entregados, marcar factura completa
+            // Si todos los detalles están entregados, marcar la factura como entregada
             $faltantes = FacturaDetalle::where('factura_id', $factura->id)
                 ->where('entregado', 0)
                 ->count();

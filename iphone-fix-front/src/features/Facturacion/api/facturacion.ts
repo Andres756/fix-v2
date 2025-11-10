@@ -232,18 +232,20 @@ export async function anularFactura(
 }
 
 /**
- * Anulación avanzada (parcial por items)
+ * Anulación avanzada (parcial por ítems)
  */
 export async function anularFacturaAvanzado(
   facturaId: number,
   payload: {
     motivo: string
-    items_anular: number[]
+    detalles?: number[]          // ✅ nombre correcto
+    acciones?: Record<string, string> // opcional
     observaciones?: string
   }
 ): Promise<{
   message: string
-  factura: Factura
+  factura_id: number
+  tipo: 'total' | 'parcial'
 }> {
   try {
     const response = await http.patch(`/facturacion/facturas/${facturaId}/anular-avanzado`, payload)
@@ -273,18 +275,18 @@ export async function verificarAnulacion(facturaId: number): Promise<{
 // ========== IMPRESIÓN/EXPORT ==========
 
 /**
- * Marcar factura como entregada
+ * Marcar factura como entregada (detalles específicos)
  */
-export async function entregarFactura(facturaId: number): Promise<{
+export async function entregarFactura(facturaId: number, payload: { entregas: { detalle_id: number }[] }): Promise<{
   message: string
   factura: Factura
 }> {
   try {
-    const response = await http.patch(`/facturacion/facturas/${facturaId}/entregar`)
-    return response.data
+    const response = await http.patch(`/facturacion/facturas/${facturaId}/entregar`, payload);
+    return response.data;
   } catch (error) {
-    console.error('Error marcando entrega:', error)
-    throw new Error(extractErrorMessage(error))
+    console.error('Error marcando entrega:', error);
+    throw new Error(extractErrorMessage(error));
   }
 }
 

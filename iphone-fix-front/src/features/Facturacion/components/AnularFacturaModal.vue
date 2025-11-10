@@ -147,24 +147,27 @@
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
-                      <tr v-for="detalle in facturaInfo.detalles" :key="detalle.id">
-                        <td class="px-4 py-2">
-                          <input
-                            type="checkbox"
-                            v-model="selectedDetalles"
-                            :value="detalle.id"
-                            class="w-4 h-4 text-red-600 border-gray-300 rounded"
-                          />
-                        </td>
-                        <td class="px-4 py-2 text-gray-800">
-                          {{ detalle.descripcion || detalle.inventario?.nombre || '—' }}
-                        </td>
-                        <td class="px-4 py-2 text-right">{{ detalle.cantidad }}</td>
-                        <td class="px-4 py-2 text-right">{{ formatMoney(detalle.precio_unitario || 0) }}</td>
-                        <td class="px-4 py-2 text-right font-medium text-gray-900">
-                          {{ formatMoney((detalle.cantidad || 1) * (detalle.precio_unitario || 0)) }}
-                        </td>
-                      </tr>
+                    <tr v-for="detalle in facturaInfo.detalles" :key="detalle.id" 
+                        :class="{
+                            'opacity-60 line-through text-gray-500 bg-gray-50': detalle.estado?.codigo === 'ANUL'  // Estilo visual para anulados
+                        }"
+                        class="border-t border-gray-100">
+                      <td class="px-4 py-2">
+                        <input
+                          type="checkbox"
+                          v-model="selectedDetalles"
+                          :value="detalle.id"
+                          :disabled="detalle.estado?.codigo === 'ANUL'"
+                          class="w-4 h-4 text-red-600 border-gray-300 rounded"
+                        />
+                      </td>
+                      <td class="px-4 py-2 text-gray-800">{{ detalle.descripcion || detalle.inventario?.nombre || '—' }}</td>
+                      <td class="px-4 py-2 text-right">{{ detalle.cantidad }}</td>
+                      <td class="px-4 py-2 text-right">{{ formatMoney(detalle.precio_unitario || 0) }}</td>
+                      <td class="px-4 py-2 text-right font-medium text-gray-900">
+                        {{ formatMoney((detalle.cantidad || 1) * (detalle.precio_unitario || 0)) }}
+                      </td>
+                    </tr>
                     </tbody>
                   </table>
                 </div>
@@ -360,10 +363,22 @@ const handleSubmit = async () => {
   try {
     isLoading.value = true
 
-    // 🧩 Construcción del payload para anulación avanzada
+    // 🧩 Filtrar detalles anulados para que no se incluyan en el payload
+    const detallesActivos = selectedDetalles.value.filter(id => {
+      // Filtrar los detalles anulados que no deben enviarse
+      const detalle = factura.value.detalles.find(d => d.id === id)
+      return detalle && detalle.estado?.codigo !== 'ANUL'  // Solo los activos
+    })
+
+    // Verificar si se seleccionaron detalles válidos
+    if (detallesActivos.length === 0) {
+      toast.warning('Debe seleccionar al menos un ítem no anulado')
+      return
+    }
+
     const payload = {
       motivo: form.motivo,
-      items_anular: selectedDetalles.value, // ✅ renombrado
+      detalles: detallesActivos,  // ✅ Solo los detalles activos seleccionados
       acciones: {
         repuestos_internos: 'reutilizables',
         repuestos_externos: 'mantener',

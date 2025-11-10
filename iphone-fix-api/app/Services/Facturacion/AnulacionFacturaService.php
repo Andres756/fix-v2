@@ -26,7 +26,6 @@ class AnulacionFacturaService
     {
         $factura = Factura::with(['detalles.estado'])->findOrFail($facturaId);
         $usuarioId = auth()->id();
-
         $estadoAnulado = EstadoFactura::where('codigo', 'ANUL')->firstOrFail();
 
         DB::beginTransaction();
@@ -34,26 +33,21 @@ class AnulacionFacturaService
             $detallesSeleccionados = $data['detalles'] ?? [];
             $acciones = $data['acciones'] ?? [];
 
-            /**
-             * 🔸 1️⃣ Si no se especifican detalles → anulación total
-             */
+            // 🔸 1️⃣ Si no se especifican detalles → anulación total
             if (empty($detallesSeleccionados)) {
                 foreach ($factura->detalles as $detalle) {
                     $detalle->update([
                         'entregado' => 0,
                         'estado_id' => $estadoAnulado->id,
                     ]);
-
                     $this->procesarReglasOrdenServicio($factura, $detalle, $acciones, $usuarioId);
                 }
 
-                // ✅ Actualizar factura
                 $factura->update([
                     'estado_id' => $estadoAnulado->id,
                     'entregado' => 0,
                 ]);
 
-                // Auditoría
                 $this->registrarAuditoria(
                     $factura->id,
                     $usuarioId,
@@ -65,12 +59,12 @@ class AnulacionFacturaService
                 return ['message' => 'Factura anulada completamente', 'tipo' => 'total'];
             }
 
-            /**
-             * 🔹 2️⃣ Anulación parcial (solo ítems seleccionados)
-             */
+            // 🔹 2️⃣ Anulación parcial (solo ítems seleccionados)
             foreach ($factura->detalles as $detalle) {
-                // Permite usar ID de detalle o ID de equipo (referencia_id)
-                if (in_array($detalle->id, $detallesSeleccionados) || in_array($detalle->referencia_id, $detallesSeleccionados)) {
+                $esSeleccionado = in_array($detalle->id, $detallesSeleccionados) 
+                    || in_array($detalle->referencia_id, $detallesSeleccionados);
+
+                if ($esSeleccionado) {
                     $detalle->update([
                         'entregado' => 0,
                         'estado_id' => $estadoAnulado->id,
@@ -78,7 +72,6 @@ class AnulacionFacturaService
 
                     $this->procesarReglasOrdenServicio($factura, $detalle, $acciones, $usuarioId);
 
-                    // ✅ Auditoría individual por ítem
                     $this->registrarAuditoria(
                         $factura->id,
                         $usuarioId,
@@ -88,16 +81,25 @@ class AnulacionFacturaService
                 }
             }
 
-            /**
-             * 🧩 3️⃣ Verificar si todos los ítems están anulados
-             */
+            // 🧩 3️⃣ Verificar si quedan ítems activos
             $factura->load('detalles.estado');
 
             $activos = $factura->detalles
                 ->filter(fn($d) => $d->estado?->codigo !== 'ANUL')
                 ->count();
 
-            if ($activos === 0) {
+            // 🚫 Si hay al menos un ítem activo, NO cambiar el estado de la factura
+            if ($activos > 0) {
+                $this->registrarAuditoria(
+                    $factura->id,
+                    $usuarioId,
+                    'ANULAR_PARCIAL',
+                    sprintf(
+                        'Se anularon %d ítems. La factura sigue activa.',
+                        count($detallesSeleccionados)
+                    )
+                );
+            } else {
                 // ✅ Todos los ítems anulados → anular factura completa
                 $factura->update([
                     'estado_id' => $estadoAnulado->id,
@@ -109,17 +111,6 @@ class AnulacionFacturaService
                     $usuarioId,
                     'ANULAR',
                     'Todos los ítems anulados, factura marcada como ANULADA.'
-                );
-            } else {
-                // ⚠️ Solo algunos ítems anulados → factura sigue activa
-                $this->registrarAuditoria(
-                    $factura->id,
-                    $usuarioId,
-                    'ANULAR_PARCIAL',
-                    sprintf(
-                        'Se anularon %d ítems. La factura sigue activa.',
-                        count($detallesSeleccionados)
-                    )
                 );
             }
 

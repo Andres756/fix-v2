@@ -205,6 +205,7 @@
                           <th class="px-4 py-2 text-center">Cant.</th>
                           <th class="px-4 py-2 text-center">Precio</th>
                           <th class="px-4 py-2 text-center">Subtotal</th>
+                          <th class="px-4 py-2 text-center">Entregado</th> <!-- Nueva columna para "Entregado" -->
                           <th class="px-4 py-2 text-center">Acciones</th>
                         </tr>
                       </thead>
@@ -218,24 +219,20 @@
                             {{ formatMoney(item.cantidad * item.precio) }}
                           </td>
                           <td class="px-4 py-2 text-center">
+                            <input
+                              type="checkbox"
+                              v-model="item.entregado" 
+                              class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                          </td>
+                          <td class="px-4 py-2 text-center">
                             <button
                               @click="removeProducto(index)"
                               class="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors flex items-center justify-center mx-auto"
                               title="Eliminar producto"
                             >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                class="w-5 h-5"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                stroke-width="2"
-                              >
-                                <path
-                                  stroke-linecap="round"
-                                  stroke-linejoin="round"
-                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                />
+                              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
                             </button>
                           </td>
@@ -662,18 +659,28 @@ function agregarProducto() {
       ? producto.costo_mayor || producto.precio || 0
       : producto.precio || producto.costo_mayor || 0
 
+  // Verificar que la cantidad sea válida
+  if (cantidadTemp.value <= 0) {
+    toast.warning('La cantidad debe ser mayor a 0')
+    return
+  }
+
+  // Agregar el producto a la lista de items
   ventaForm.items.push({
     inventario_id: producto.id,
     codigo: producto.codigo,
     nombre: producto.nombre,
     cantidad: cantidadTemp.value,
-    tipo_precio: tipoPrecioTemp.value,
+    tipo_precio: tipoPrecioTemp.value, // 'DET' | 'MAY'
     precio: precioSeleccionado,
+    entregado: false,  // Asegúrate de establecer si está entregado o no
   })
 
+  // Limpiar campos después de agregar
   productoSeleccionado.value = null
   searchProducto.value = ''
   cantidadTemp.value = 1
+  tipoPrecioTemp.value = 'DET'
 }
 
 function removeProducto(index: number) {
@@ -790,49 +797,48 @@ const totalFactura = computed(() => {
 
 // =================== SUBMIT VENTA ===================
 async function handleSubmitVenta() {
-  if (isSaving.value) return // Prevenir doble envío
-  
+  if (isSaving.value) return
+
   if (!selectedClienteId.value) {
     toast.warning('Debe seleccionar un cliente')
     return
   }
   ventaForm.cliente_id = selectedClienteId.value.toString()
-  
-  const itemsValidos = ventaForm.items.filter(item => item.inventario_id && item.cantidad > 0)
+
+  const itemsValidos = ventaForm.items.filter(i => i.inventario_id && i.cantidad > 0)
   if (itemsValidos.length === 0) {
     toast.warning('Debe agregar al menos un producto')
     return
   }
-  
+
   try {
     isSaving.value = true
-    
+
     const payload = {
       origen: 'venta' as const,
       cliente_id: Number(ventaForm.cliente_id),
       forma_pago_id: ventaForm.forma_pago_id ? Number(ventaForm.forma_pago_id) : undefined,
       observaciones: ventaForm.observaciones || undefined,
-      entregado: ventaForm.entregado,
+      entregado: ventaForm.entregado,  // Campo entregado global para la factura
       items: itemsValidos.map(item => ({
         inventario_id: Number(item.inventario_id),
-        cantidad: item.cantidad,
-        tipo_precio: item.tipo_precio
-      }))
+        cantidad: Number(item.cantidad),
+        tipo_precio: item.tipo_precio,  // 'DET' | 'MAY'
+        precio_unitario: Number(item.precio ?? item.precio_unitario ?? 0),
+        entregado: item.entregado,  // Campo entregado para cada ítem individual
+      })),
     }
-    
-    console.log('📤 Enviando factura de venta:', payload)
-    
+
+    console.log('📤 Enviando factura de venta:', JSON.stringify(payload, null, 2))
+
     await createFacturaVenta(payload)
     toast.success('Factura creada exitosamente')
-    
-    // Limpiar formulario antes de emitir eventos
     resetearFormularios()
-    
     emit('success')
     emit('close')
   } catch (error: any) {
     console.error('Error creando factura:', error)
-    toast.error(error.message || 'Error al crear la factura')
+    toast.error(error?.response?.data?.message || error.message || 'Error al crear la factura')
   } finally {
     isSaving.value = false
   }

@@ -43,9 +43,7 @@ class FacturacionService
         DB::beginTransaction();
 
         try {
-            // ⚙️ Determinar si la venta fue entregada al cliente
-            $entregado = isset($payload['entregado']) ? (bool)$payload['entregado'] : true;
-
+            // ⚙️ Determinar si la venta fue entregada al cliente globalmente
             $estadoPend = \App\Models\Facturacion\EstadoFactura::where('codigo', 'PEND')->firstOrFail();
 
             // 🧾 Crear factura base
@@ -63,8 +61,7 @@ class FacturacionService
                 'fecha_emision'  => now(),
                 'prefijo'        => null,
                 'consecutivo'    => null,
-                'entregado'      => $entregado ? 1 : 0, // 👈 nuevo campo
-                'estado_id' => $estadoPend->id,
+                'estado_id'      => $estadoPend->id,
             ]);
 
             $subtotal = 0;
@@ -76,15 +73,17 @@ class FacturacionService
                 $inventario = Inventario::findOrFail($it['inventario_id']);
                 $tipoPrecio = strtoupper($it['tipo_precio'] ?? 'DET');
 
-                // 🏷️ Precio individual por ítem
-                $valorUnitario = ($tipoPrecio === 'MAY')
-                    ? (float)($inventario->precio_mayor ?? $inventario->precio)
-                    : (float)$inventario->precio;
+                // 🏷️ Prioridad: usar el precio enviado desde el frontend si viene
+                $valorUnitario = isset($it['precio_unitario']) && is_numeric($it['precio_unitario'])
+                    ? (float) $it['precio_unitario']
+                    : (($tipoPrecio === 'MAY')
+                        ? (float) ($inventario->precio_mayor ?? $inventario->precio)
+                        : (float) $inventario->precio);
 
-                $cantidad = (int)$it['cantidad'];
+                $cantidad = (int) $it['cantidad'];
                 $totalItem = $cantidad * $valorUnitario;
 
-                // 🧾 Crear el detalle
+                // 🧾 Crear el detalle de factura con el campo entregado para cada ítem
                 FacturaDetalle::create([
                     'factura_id'     => $factura->id,
                     'tipo_item'      => 'producto',
@@ -96,7 +95,7 @@ class FacturacionService
                     'descuento'      => 0,
                     'impuesto'       => 0,
                     'total'          => $totalItem,
-                    'entregado'      => $entregado ? 1 : 0, // 👈 importante: sincroniza con la factura
+                    'entregado'      => isset($it['entregado']) ? (bool)$it['entregado'] : false,  // Campo entregado por producto
                 ]);
 
                 $subtotal += $totalItem;
@@ -171,8 +170,8 @@ class FacturacionService
         ?string $observaciones = null,
         ?array $equiposSeleccionados = null,
         bool $entregado = true
-    ): \App\Models\Facturacion\Factura {
-        $os = \App\Models\OrdenServicio\OrdenServicio::with([
+    ): Factura {
+        $os = OrdenServicio::with([
             'equipos.tareas',
             'equipos.repuestosInventario.inventario',
             'equipos.repuestosExternos'
@@ -287,7 +286,6 @@ class FacturacionService
 
         return $factura->fresh(['cliente', 'detalles', 'estado']);
     }
-
 
     /**
      * Registrar pago o abono a factura (actualiza estado por trigger)
@@ -524,13 +522,21 @@ class FacturacionService
         // 🔹 Recalcular totales haciendo NUEVA QUERY (no usar colección)
         $facturas->setCollection(
             $facturas->getCollection()->map(function ($factura) {
-                // 👇 QUERY FRESCA - CON PARÉNTESIS
+                // 🔹 Recalcular total de la factura (solo detalles activos)
+                $totalReal = $factura->detalles()
+                    ->whereHas('estado', fn($q) => $q->where('codigo', '!=', 'ANUL'))
+                    ->sum('total');
+
+                // 🔹 Recalcular total pagado
                 $totalPagado = $factura->pagos()
                     ->where('estado', '!=', 'anulado')
                     ->sum('valor');
 
-                $saldoPendiente = max($factura->total - $totalPagado, 0);
+                // 🔹 Calcular saldo con el total actualizado
+                $saldoPendiente = max($totalReal - $totalPagado, 0);
 
+                // 🔹 Sobrescribir valores dinámicos
+                $factura->total = $totalReal;
                 $factura->total_pagado = $totalPagado;
                 $factura->saldo_pendiente = $saldoPendiente;
 
