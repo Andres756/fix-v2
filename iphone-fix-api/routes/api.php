@@ -43,6 +43,7 @@ use App\Http\Controllers\Api\Inventario\SalidasProductoController;
 use App\Http\Controllers\Api\Inventario\DetallesProductoController;
 use App\Http\Controllers\Api\Inventario\DetallesRepuestoController;
 use App\Http\Controllers\api\Inventario\InventarioExportController;
+use App\Http\Controllers\Api\Inventario\ModelosEquiposController;
 
 // ─────────────────────────────────────────────
 // Plan Separe
@@ -226,6 +227,17 @@ Route::get('ordenes', [OrdenServicioController::class, 'listAll']);
 Route::get('equipos/{equipoId}/costos', [EquipoOrdenServicioController::class, 'costos']);
 
 Route::patch('equipos/{equipoId}/estado', [EquipoOrdenServicioController::class, 'actualizarEstado']);
+
+Route::prefix('inventario')->group(function () {
+    // ... tus rutas existentes
+    
+    // ✅ NUEVAS RUTAS: Modelos de Equipos
+    Route::get('modelos-equipos/options', [ModelosEquiposController::class, 'options']);
+    Route::get('modelos-equipos/reporte', [ModelosEquiposController::class, 'reporteInventario']);
+    Route::get('modelos-equipos/{modeloEquipo}/equipos', [ModelosEquiposController::class, 'equiposPorModelo']);
+    Route::apiResource('modelos-equipos', ModelosEquiposController::class)
+        ->parameters(['modelos-equipos' => 'modeloEquipo']);
+});
 
 // ── Clientes
 Route::apiResource('clientes', ClienteController::class)

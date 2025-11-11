@@ -37,14 +37,26 @@
             <span>Código</span>
             <span class="text-red-500 ml-1">*</span>
           </label>
-          <input 
-            v-model.trim="model.codigo" 
-            type="text" 
-            class="w-full rounded-lg border-2 border-gray-200 bg-white px-4 py-3 text-gray-900 
-                   placeholder-gray-500 transition-all duration-200 
-                   hover:border-gray-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10" 
-            placeholder="Código único del producto"
-          />
+          <div class="flex items-center">
+            <input 
+              v-model.trim="model.codigo" 
+              :readonly="isCodigoReadonly" 
+              type="text" 
+              class="w-full rounded-lg border-2 border-gray-200 bg-white px-4 py-3 text-gray-900 
+                    placeholder-gray-500 transition-all duration-200 
+                    hover:border-gray-300 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10" 
+              placeholder="Código único del producto"
+            />
+            <div class="ml-2">
+              <input 
+                type="checkbox" 
+                id="autoGenerateCodigo" 
+                v-model="autoGenerateCodigo" 
+                class="h-5 w-5 text-blue-500 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <label for="autoGenerateCodigo" class="text-sm font-semibold text-gray-700 ml-1">Auto.</label>
+            </div>
+          </div>
         </div>
 
         <div class="space-y-2">
@@ -237,8 +249,10 @@
 </template>
 
 <script setup lang="ts">
-const model = defineModel<any>({ required: true })
+import { ref, watch } from 'vue'
 
+// Definimos el modelo y los props
+const model = defineModel<any>({ required: true })
 defineProps<{
   tipos: any[]
   categorias: any[]
@@ -246,6 +260,19 @@ defineProps<{
 
 const emit = defineEmits<{ (e:'imagen', file: File | null): void }>()
 
+// Estado para manejar el checkbox "Automático"
+const autoGenerateCodigo = ref(false);
+const isCodigoReadonly = ref(false);
+
+// Observamos si el checkbox está marcado
+watch(autoGenerateCodigo, (newValue) => {
+  isCodigoReadonly.value = newValue;  // Si está marcado, deshabilitamos el campo
+  if (newValue) {
+    model.codigo = ''; // Limpiamos el campo cuando se activa la opción automática (puede ser opcional dependiendo de la lógica del backend)
+  }
+});
+
+// Función para manejar la imagen
 function onFile(e: Event) {
   const input = e.target as HTMLInputElement
   emit('imagen', input.files?.[0] ?? null)

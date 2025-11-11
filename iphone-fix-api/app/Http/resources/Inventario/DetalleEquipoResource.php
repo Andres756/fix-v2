@@ -15,6 +15,7 @@ class DetalleEquipoResource extends JsonResource
             'version_ios'   => $this->version_ios,
             'almacenamiento'=> $this->almacenamiento,
             'color'         => $this->color,
+            'modelo'        => new ModeloEquipoResource($this->whenLoaded('modeloEquipo')), // Incluye la relación modeloEquipo
         ];
     }
 }

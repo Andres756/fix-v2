@@ -8,6 +8,29 @@
     </h4>
     
     <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+
+      <!-- ✅ NUEVO: Selector de Modelo -->
+      <div class="space-y-2">
+        <label class="text-sm font-semibold text-gray-700">
+          Modelo <span class="text-red-500">*</span>
+        </label>
+        <select 
+          v-model="detalle.modelo_equipo_id" 
+          required
+          class="w-full rounded-lg border-2 border-gray-200 px-4 py-3"
+        >
+          <option value="">Seleccionar modelo...</option>
+          <option 
+            v-for="modelo in modelos" 
+            :key="modelo.id" 
+            :value="modelo.id"
+          >
+            {{ modelo.marca }} {{ modelo.nombre }}
+            <span v-if="modelo.familia" class="text-gray-500">({{ modelo.familia }})</span>
+          </option>
+        </select>
+      </div>
+
       <!-- IMEI 1 - Campo requerido -->
       <div class="space-y-2">
         <label class="flex items-center text-sm font-semibold text-gray-700">
@@ -173,14 +196,23 @@
 </template>
 
 <script setup lang="ts">
-type DetalleEquipo = {
-  imei_1: string; 
-  imei_2?: string;
-  estado_fisico?: string; 
-  version_ios?: string;
-  almacenamiento?: string; 
-  color?: string;
-};
+import { ref, onMounted } from 'vue'
+import { fetchModelosEquiposOptions } from '../../api/modelosEquipos'
 
-const detalle = defineModel<DetalleEquipo>('detalle', { required: true });
+type DetalleEquipo = {
+  modelo_equipo_id: number | null  // ✅ NUEVO
+  imei_1: string
+  imei_2?: string
+  estado_fisico?: string
+  version_ios?: string
+  almacenamiento?: string
+  color?: string
+}
+
+const detalle = defineModel<DetalleEquipo>('detalle', { required: true })
+const modelos = ref<any[]>([])
+
+onMounted(async () => {
+  modelos.value = await fetchModelosEquiposOptions()
+})
 </script>

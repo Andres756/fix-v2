@@ -5,6 +5,7 @@ namespace App\Models\Inventario;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Inventario\Proveedor;
+use App\Models\Inventario\Cliente;  // Asegúrate de tener el modelo Cliente
 use App\Models\Inventario\Lote;
 use App\Models\Parametros\MotivoIngreso;
 
@@ -13,7 +14,8 @@ class EntradaProducto extends Model
     protected $table = 'entradas_producto';
 
     protected $fillable = [
-        'proveedor_id',
+        'proveedor_id',       // Mantén el proveedor_id
+        'cliente_id',         // Agregar el cliente_id
         'lote_id',
         'motivo_ingreso_id',
         'fecha_entrada',
@@ -30,6 +32,12 @@ class EntradaProducto extends Model
         return $this->belongsTo(Proveedor::class, 'proveedor_id');
     }
 
+    // Relación para el cliente (nuevo campo)
+    public function cliente()
+    {
+        return $this->belongsTo(Cliente::class, 'cliente_id');  // Relación con Cliente
+    }
+
     public function lote()
     {
         return $this->belongsTo(Lote::class, 'lote_id');
@@ -37,7 +45,7 @@ class EntradaProducto extends Model
 
     public function motivoIngreso()
     {
-        return $this->belongsTo(MotivoMovimiento::class, 'motivo_ingreso_id');
+        return $this->belongsTo(MotivoIngreso::class, 'motivo_ingreso_id');
     }
 
     public function items()

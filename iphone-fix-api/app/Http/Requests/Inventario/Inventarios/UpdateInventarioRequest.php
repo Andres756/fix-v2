@@ -48,6 +48,7 @@ class UpdateInventarioRequest extends FormRequest
             'imagen' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
 
             // Detalles según tipo de inventario
+            'detalle_equipo.modelo_equipo_id' => ['required', 'integer', 'exists:modelos_equipos,id'],
             'detalle_equipo.imei_1'            => ['nullable', 'string', 'max:100'],
             'detalle_equipo.imei_2'            => ['nullable', 'string', 'max:100'],
             'detalle_equipo.estado_fisico'     => ['nullable', 'string', 'max:100'],

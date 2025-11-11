@@ -16,7 +16,7 @@ class StoreInventarioRequest extends FormRequest
         return [
             'nombre' => ['required', 'string', 'max:255'], // ✅ Ya no es único
             'nombre_detallado' => ['required', 'string', 'max:255', 'unique:inventarios,nombre_detallado'], // ✅ Obligatorio y único
-            'codigo' => ['required', 'string', 'max:100', 'unique:inventarios,codigo'], // ✅ Sigue siendo único
+            'codigo' => ['nullable', 'string', 'max:100', 'unique:inventarios,codigo'], // ✅ Sigue siendo único
 
             'tipo_inventario_id' => ['required', 'integer', 'exists:tipos_de_inventario,id'],
             'categoria_id'       => ['required', 'integer', 'exists:categorias,id'],
@@ -32,6 +32,7 @@ class StoreInventarioRequest extends FormRequest
             'imagen' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
 
             // Detalles por tipo
+            'detalle_equipo.modelo_equipo_id' => ['required', 'integer', 'exists:modelos_equipos,id'],
             'detalle_equipo.imei_1'            => ['nullable', 'string', 'max:100'],
             'detalle_equipo.imei_2'            => ['nullable', 'string', 'max:100'],
             'detalle_equipo.estado_fisico'     => ['nullable', 'string', 'max:100'],

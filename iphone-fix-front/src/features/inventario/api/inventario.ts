@@ -140,24 +140,64 @@ export async function createInventario(
   }
 }
 
-export type UpdateInventarioPayload = Partial<CreateInventarioPayload> & {
-  eliminar_imagen?: boolean;
-};
+// src/features/inventario/api/inventario.ts
+
+export interface UpdateInventarioPayload {
+  nombre: string
+  nombre_detallado?: string | null
+  codigo: string
+  tipo_inventario_id: number
+  categoria_id: number
+  stock_minimo: number
+  precio: number
+  costo_mayor: number
+  tipo_impuesto?: 'n/a' | 'porcentaje' | 'fijo'
+  valor_impuesto?: number
+  notas?: string
+
+  detalle_equipo?: {
+    modelo_equipo_id?: number | null
+    imei_1?: string
+    imei_2?: string | null
+    estado_fisico?: string | null
+    version_ios?: string | null
+    almacenamiento?: string | null
+    color?: string | null
+  }
+
+  detalle_producto?: {
+    material?: string | null
+    compatibilidad?: string | null
+    tipo_accesorio?: string | null
+  }
+
+  detalle_repuesto?: {
+    modelo_compatible?: string | null
+    tipo_repuesto?: string | null
+    referencia_fabricante?: string | null
+    garantia_meses?: number | null
+  }
+}
 
 export async function updateInventario(
   id: number,
   payload: UpdateInventarioPayload,
-  imagen?: File | null
+  imagen?: File
 ): Promise<Inventario> {
-  if (hasFile(imagen) || payload.eliminar_imagen) {
-    const form = objectToFormData(payload);
-    if (hasFile(imagen)) form.append('imagen', imagen);
-    const { data } = await http.put(`/inventario/inventarios/${id}`, form);
-    return (data?.data ?? data) as Inventario;
-  } else {
-    const { data } = await http.put(`/inventario/inventarios/${id}`, payload);
-    return (data?.data ?? data) as Inventario;
+  const form = new FormData()
+  form.append('_method', 'PUT')
+
+  objectToFormData(payload, form)
+
+  if (imagen) {
+    form.append('imagen', imagen)
   }
+
+  const { data } = await http.post(`/inventario/inventarios/${id}`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+
+  return (data?.data ?? data) as Inventario
 }
 
 export async function deleteInventario(id: number): Promise<void> {

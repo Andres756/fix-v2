@@ -200,6 +200,7 @@
               <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Stock</th>
               <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Estado</th>
               <th class="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Precio</th>
+              <th class="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Acciones</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200">
@@ -297,6 +298,22 @@
                 </div>
               </td>
 
+              <!-- ✅ NUEVA CELDA DE ACCIONES -->
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center justify-center gap-2">
+                  <!-- Botón Editar -->
+                  <button
+                    @click="abrirEditar(it)"
+                    class="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-all duration-200 group/btn"
+                    title="Editar producto"
+                  >
+                    <svg class="h-5 w-5 group-hover/btn:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                  </button>
+                </div>
+              </td>
+
             </tr>
           </tbody>
         </table>
@@ -361,6 +378,14 @@
     <!-- Modal: Nuevo inventario -->
     <NewInventarioModal :open="showNew" @close="showNew = false" @created="onCreated" />
 
+    <!-- ✅ NUEVO: Modal de Edición -->
+    <EditInventarioModal 
+      :open="showEdit" 
+      :inventario-id="selectedId"
+      @close="cerrarEditar" 
+      @updated="onUpdated" 
+    />
+
     <!-- Modal: Entrada de Stock -->
     <InventoryEntryModal 
       :is-open="showEntryModal" 
@@ -372,12 +397,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { toast } from 'vue3-toastify'
 import {
   fetchInventario,
   fetchTiposInventarioOptions,
   fetchEstadosInventarioOptions,
 } from '../../features/inventario/api/inventario';
 import NewInventarioModal from '../../features/inventario/components/NewInventarioModal.vue';
+import EditInventarioModal from '../../features/inventario/components/EditInventarioModal.vue';
 import InventoryEntryModal from '../../features/inventario/components/InventoryEntryModal.vue';
 import InventarioExportModal from "../../features/inventario/components/InventarioExportModal.vue";
 
@@ -386,6 +413,37 @@ import type { PaginationMeta } from '../../shared/types/pagination';
 import type { Option } from '../../shared/types/common';
 
 const openModal = ref(false);
+
+// ✅ NUEVO: Estados para edición
+const showEdit = ref(false)
+const selectedId = ref<number | null>(null)
+
+// ✅ NUEVA: Función para abrir editar
+function abrirEditar(item: Inventario) {
+  selectedId.value = item.id
+  showEdit.value = true
+}
+
+// ✅ NUEVA: Función para cerrar editar
+function cerrarEditar() {
+  showEdit.value = false
+  selectedId.value = null
+}
+
+// ✅ HANDLER CUANDO SE ACTUALIZA
+function onUpdated() {
+  toast.success('Producto actualizado exitosamente')
+  cerrarEditar() // ✅ Cerrar modal primero
+  load()         // ✅ Luego recargar
+}
+
+// Función opcional para ver detalle
+function verDetalle(item: Inventario) {
+  // Puedes implementar un drawer o modal de detalle
+  console.log('Ver detalle:', item)
+}
+
+
 
 // 🎨 FUNCIONES PARA COLORES SEGÚN ESTADO_INVENTARIO_ID
 function getEstadoNombre(item: Inventario): string {

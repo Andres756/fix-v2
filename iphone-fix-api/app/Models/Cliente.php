@@ -21,4 +21,10 @@ class Cliente extends Model
     {
         return $this->hasMany(\App\Models\OrdenServicio\OrdenServicio::class, 'cliente_id');
     }
+
+    // 🔗 Relación inversa: un cliente tiene muchas entradas de productos
+    public function entradasProducto()
+    {
+        return $this->hasMany(\App\Models\Inventario\EntradaProducto::class, 'cliente_id');
+    }
 }

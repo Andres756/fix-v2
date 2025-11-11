@@ -258,7 +258,7 @@ const form = ref<CreateInventarioPayload>({
 
 // Detalles por tipo
 const detalle_equipo = ref({ 
-  imei_1: '', imei_2: '', estado_fisico: '', 
+  modelo_equipo_id: '', imei_1: '', imei_2: '', estado_fisico: '', 
   version_ios: '', almacenamiento: '', color: '' 
 });
 const detalle_producto = ref({ 
@@ -311,7 +311,6 @@ const completionPercentage = computed(() => {
 // ✅ Validación ajustada
 const canSave = computed(() => {
   const basic = form.value.nombre &&
-                form.value.codigo &&
                 form.value.tipo_inventario_id &&
                 form.value.categoria_id &&
                 form.value.stock_minimo !== null && form.value.stock_minimo > 0 &&
@@ -341,7 +340,7 @@ async function loadCategorias() {
 // Watchers
 watch(() => form.value.tipo_inventario_id, async () => {
   // Reset detalles
-  detalle_equipo.value = { imei_1: '', imei_2: '', estado_fisico: '', version_ios: '', almacenamiento: '', color: '' };
+  detalle_equipo.value = { modelo_equipo_id: '', imei_1: '', imei_2: '', estado_fisico: '', version_ios: '', almacenamiento: '', color: '' };
   detalle_producto.value = { material: '', compatibilidad: '', tipo_accesorio: '' };
   detalle_repuesto.value = { modelo_compatible: '', tipo_repuesto: '', referencia_fabricante: '', garantia_meses: null };
   
@@ -474,7 +473,7 @@ function reset() {
     valor_impuesto: null as any,
     notas: ''
   };
-  detalle_equipo.value = { imei_1: '', imei_2: '', estado_fisico: '', version_ios: '', almacenamiento: '', color: '' };
+  detalle_equipo.value = { modelo_equipo_id: '', imei_1: '', imei_2: '', estado_fisico: '', version_ios: '', almacenamiento: '', color: '' };
   detalle_producto.value = { material: '', compatibilidad: '', tipo_accesorio: '' };
   detalle_repuesto.value = { modelo_compatible: '', tipo_repuesto: '', referencia_fabricante: '', garantia_meses: null };
   imagen = null;

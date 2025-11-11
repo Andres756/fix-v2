@@ -15,6 +15,12 @@ use Illuminate\Database\QueryException;
 
 class InventariosController extends Controller
 {
+
+        // Define los tipos de inventario de forma fija
+    const TIPO_EQUIPO = 1;
+    const TIPO_PRODUCTO = 2;
+    const TIPO_REPUESTO = 3;
+    
     public function index(Request $r)
     {
         $perPage = max(1, min((int) $r->input('per_page', 15), 100));
@@ -46,10 +52,13 @@ class InventariosController extends Controller
         );
     }
 
-    public function store(StoreInventarioRequest $r)
+    /**
+     * Metodo para crear el inventario.
+     */
+    public function store(StoreInventarioRequest $request)
     {
         try {
-            $data = $r->validated();
+            $data = $request->validated();
 
             // ⚙️ Valores iniciales
             $data['stock'] = 0;
@@ -57,29 +66,57 @@ class InventariosController extends Controller
             $data['estado_inventario_id'] = 2; // SIN STOCK
 
             // Si es equipo, stock mínimo = 1
-            if ((int)($data['tipo_inventario_id'] ?? 0) === $this->tipoEquiposId()) {
+            if ($data['tipo_inventario_id'] === self::TIPO_EQUIPO) {
                 $data['stock_minimo'] = 1;
             }
 
             // 🔒 Asegurar nombre_detallado no nulo
-            $data['nombre_detallado'] = $r->input('nombre_detallado', $data['nombre'] ?? '');
+            $data['nombre_detallado'] = $request->input('nombre_detallado', $data['nombre'] ?? '');
             if (empty($data['nombre_detallado'])) {
                 return response()->json(['message' => 'El nombre detallado es obligatorio.'], 422);
             }
 
+            // Verificar y generar código automáticamente si no está presente
+            if (empty($data['codigo'])) {
+                $prefix = '';
+                switch ($data['tipo_inventario_id']) {
+                    case self::TIPO_EQUIPO:
+                        $prefix = 'EQU';
+                        break;
+                    case self::TIPO_PRODUCTO:
+                        $prefix = 'PRO';
+                        break;
+                    case self::TIPO_REPUESTO:
+                        $prefix = 'REP';
+                        break;
+                    default:
+                        $prefix = 'GEN'; // Default case
+                }
+
+                // Buscar el último código y generar el siguiente
+                $lastCode = Inventario::where('codigo', 'like', $prefix . '%')
+                    ->orderBy('codigo', 'desc')
+                    ->first();
+
+                $lastNumber = $lastCode ? (int)substr($lastCode->codigo, -5) : 0;
+                $newCode = $prefix . '-' . str_pad($lastNumber + 1, 5, '0', STR_PAD_LEFT);
+
+                $data['codigo'] = $newCode;
+            }
+
             unset($data['imagen'], $data['detalle_equipo'], $data['detalle_producto'], $data['detalle_repuesto']);
 
-            $inv = DB::transaction(function () use ($r, $data) {
+            $inv = DB::transaction(function () use ($request, $data) {
                 $inv = Inventario::create($data);
 
                 // 🔧 Crear detalles por tipo
-                if ($r->filled('detalle_equipo'))   $inv->detalleEquipo()->create($r->input('detalle_equipo'));
-                if ($r->filled('detalle_producto')) $inv->detalleProducto()->create($r->input('detalle_producto'));
-                if ($r->filled('detalle_repuesto')) $inv->detalleRepuesto()->create($r->input('detalle_repuesto'));
+                if ($request->filled('detalle_equipo'))   $inv->detalleEquipo()->create($request->input('detalle_equipo'));
+                if ($request->filled('detalle_producto')) $inv->detalleProducto()->create($request->input('detalle_producto'));
+                if ($request->filled('detalle_repuesto')) $inv->detalleRepuesto()->create($request->input('detalle_repuesto'));
 
                 // 📷 Imagen
-                if ($r->hasFile('imagen')) {
-                    $path = $r->file('imagen')->store('inventarios', 'public');
+                if ($request->hasFile('imagen')) {
+                    $path = $request->file('imagen')->store('inventarios', 'public');
                     $inv->ruta_imagen = $path;
                     $inv->save();
                 }
@@ -114,8 +151,14 @@ class InventariosController extends Controller
     public function show(Inventario $inventario)
     {
         return new InventarioResource(
-            $inventario->load(['categoria:id,nombre', 'estado:id,nombre', 'tipo:id,nombre',
-                               'detalleEquipo', 'detalleProducto', 'detalleRepuesto'])
+            $inventario->load([
+                'categoria:id,nombre', 
+                'estado:id,nombre', 
+                'tipo:id,nombre',
+                'detalleEquipo.modeloEquipo',  // Asegúrate de cargar la relación con modeloEquipo
+                'detalleProducto', 
+                'detalleRepuesto'
+            ])
         );
     }
 

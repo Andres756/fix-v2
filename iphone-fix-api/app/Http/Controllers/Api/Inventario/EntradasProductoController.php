@@ -36,7 +36,8 @@ class EntradasProductoController extends Controller
     {
         // 🔹 Validación principal
         $validator = Validator::make($request->all(), [
-            'proveedor_id' => 'required|exists:proveedores,id',
+            'proveedor_id' => 'nullable|exists:proveedores,id',  // Proveedor opcional
+            'cliente_id' => 'nullable|exists:clientes,id',  // Cliente opcional
             'lote_id' => 'nullable|exists:lotes,id',  // ✅ Lote opcional
             'motivo_ingreso_id' => ['required', 'integer', 'exists:motivos_movimientos,id'],
             'fecha_entrada' => 'required|date',
@@ -54,6 +55,13 @@ class EntradasProductoController extends Controller
             ], 422);
         }
 
+        // 🔹 Validación para asegurar que solo uno de los campos 'proveedor_id' o 'cliente_id' sea proporcionado
+        if ($request->proveedor_id && $request->cliente_id) {
+            return response()->json([
+                'message' => 'No se puede seleccionar tanto un proveedor como un cliente al mismo tiempo.'
+            ], 422);
+        }
+
         // 🔹 Validar que el motivo sea realmente de tipo 'entrada'
         $motivo = DB::table('motivos_movimientos')
             ->where('id', $request->motivo_ingreso_id)
@@ -68,6 +76,7 @@ class EntradasProductoController extends Controller
 
         DB::beginTransaction();
         try {
+            // Validación de ítems
             foreach ($request->items as $item) {
                 $inventario = Inventario::find($item['inventario_id']);
 
@@ -104,6 +113,7 @@ class EntradasProductoController extends Controller
             // ✅ Crear la entrada principal
             $entrada = EntradaProducto::create([
                 'proveedor_id' => $request->proveedor_id,
+                'cliente_id' => $request->cliente_id,  // Nuevo campo cliente_id
                 'lote_id' => $request->lote_id,
                 'motivo_ingreso_id' => $request->motivo_ingreso_id,
                 'fecha_entrada' => $request->fecha_entrada,
@@ -123,7 +133,7 @@ class EntradasProductoController extends Controller
             DB::commit();
 
             // Cargar relaciones actualizadas
-            $entrada->load(['proveedor', 'lote', 'motivoIngreso', 'items.inventario']);
+            $entrada->load(['proveedor', 'cliente', 'lote', 'motivoIngreso', 'items.inventario']);
 
             return response()->json([
                 'message' => 'Entrada de inventario registrada exitosamente',
