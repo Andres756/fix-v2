@@ -429,6 +429,7 @@ class FacturacionController extends Controller
         $request->validate([
             'entregas' => 'nullable|array',
             'entregas.*.detalle_id' => 'required_with:entregas|integer|exists:factura_detalle,id',
+            'forzar' => 'nullable|boolean', // 👈 NUEVO parámetro
         ]);
 
         $usuarioId = Auth::id() ?? $request->input('usuario_id');
@@ -439,12 +440,14 @@ class FacturacionController extends Controller
             return response()->json(['message' => 'No se puede entregar una factura anulada.'], 422);
         }
 
-        // 🚨 Validar si la factura está pagada
-        if ($factura->estado?->codigo !== '2') {
-            // Si la factura no está pagada, preguntar si el usuario quiere entregar el producto a pesar del saldo pendiente
+        // 🚨 Validar si la factura está pagada (SOLO si no se fuerza)
+        $forzar = $request->input('forzar', false);
+        
+        if ($factura->estado?->codigo !== '2' && !$forzar) {
+            // Si la factura no está pagada Y no se está forzando, pedir confirmación
             return response()->json([
                 'message' => 'La factura tiene saldo pendiente. ¿Está seguro de que desea entregar este producto?',
-                'confirmar_entrega' => true  // Este campo puede ser utilizado en el frontend para confirmar la entrega
+                'confirmar_entrega' => true
             ], 400);
         }
 
@@ -482,10 +485,11 @@ class FacturacionController extends Controller
                 'usuario_id' => $usuarioId,
                 'accion'     => 'EDITAR',
                 'detalle'    => empty($entregas)
-                    ? 'Factura entregada completamente.'
-                    : sprintf('Entrega parcial de %d ítems (%s).',
+                    ? 'Factura entregada completamente.' . ($forzar ? ' (Forzado con saldo pendiente)' : '')
+                    : sprintf('Entrega parcial de %d ítems (%s).%s',
                         count($entregados),
-                        implode(',', $entregados)
+                        implode(',', $entregados),
+                        $forzar ? ' (Forzado con saldo pendiente)' : ''
                     ),
                 'created_at' => now(),
             ]);

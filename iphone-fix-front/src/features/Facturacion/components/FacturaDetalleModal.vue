@@ -87,10 +87,16 @@
                   <tbody>
                     <tr v-for="d in factura.detalles" :key="d.id" 
                         :class="{
-                          'opacity-60 line-through text-gray-500 bg-gray-50': d.estado?.codigo === 'ANUL'
+                          'opacity-60 line-through text-gray-500 bg-gray-50': d.estado?.codigo === 'ANUL',
+                          'bg-green-50': estaEntregado(d)
                         }" 
                         class="border-t border-gray-100">
-                      <td class="px-4 py-2">{{ d.descripcion }}</td>
+                      <td class="px-4 py-2">
+                        {{ d.descripcion }}
+                        <span v-if="estaEntregado(d)" class="ml-2 text-xs font-semibold text-green-600">
+                          ✓ Entregado
+                        </span>
+                      </td>
                       <td class="px-4 py-2 text-center">{{ d.cantidad }}</td>
                       <td class="px-4 py-2 text-right">{{ formatMoney(d.valor_unitario) }}</td>
                       <td class="px-4 py-2 text-right font-semibold">{{ formatMoney(d.total) }}</td>
@@ -98,10 +104,14 @@
                       <td class="px-4 py-2 text-center">
                         <input
                           type="checkbox"
-                          v-model="d.entregado"
-                          :disabled="factura.saldo_pendiente > 0 && !confirmarEntrega" 
-                          class="accent-green-600 w-4 h-4 cursor-pointer"
-                          @change="handleEntregaChange(d)" 
+                          :checked="estaEntregado(d)"
+                          :disabled="
+                            factura.estado?.codigo === 'ANUL' || 
+                            d.estado?.codigo === 'ANUL' || 
+                            estaEntregado(d)
+                          "
+                          class="accent-green-600 w-4 h-4 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                          @change="handleEntregaChange(d, $event)" 
                         />
                       </td>
                     </tr>
@@ -114,16 +124,26 @@
             </div>
 
             <!-- Modal de Confirmación de Entrega -->
-            <div v-if="confirmarEntrega" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50">
-              <div class="bg-white rounded-xl shadow-lg w-80 p-6">
+            <div v-if="modalConfirmacionEntrega.visible" class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50">
+              <div class="bg-white rounded-xl shadow-lg w-96 p-6">
                 <h3 class="text-lg font-semibold mb-4">Confirmar entrega</h3>
-                <p class="text-sm mb-4">La factura tiene saldo pendiente. ¿Está seguro de que desea entregar este producto?</p>
-                <div class="flex justify-between gap-2">
-                  <button @click="confirmarEntrega = false; procederConEntrega()" class="px-4 py-2 bg-blue-600 text-white rounded-lg">
-                    Sí
-                  </button>
-                  <button @click="confirmarEntrega = false" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg">
+                <p class="text-sm text-gray-600 mb-6">
+                  La factura tiene un saldo pendiente de 
+                  <span class="font-bold text-orange-600">{{ formatMoney(factura.saldo_pendiente) }}</span>. 
+                  ¿Está seguro de que desea entregar este producto?
+                </p>
+                <div class="flex justify-end gap-3">
+                  <button 
+                    @click="cancelarEntrega" 
+                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                  >
                     No
+                  </button>
+                  <button 
+                    @click="confirmarYEntregar" 
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    Sí, entregar
                   </button>
                 </div>
               </div>
@@ -188,43 +208,6 @@
                       </td>
                     </tr>
                   </tbody>
-                  <!-- Modal de anulación -->
-                  <div
-                    v-if="modalAnulacion"
-                    class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]"
-                  >
-                    <div class="bg-white rounded-xl shadow-lg w-full max-w-sm p-6">
-                      <h3 class="text-lg font-semibold mb-4">Anular pago</h3>
-
-                      <label class="block text-sm font-medium mb-2">Motivo de anulación</label>
-                      <select
-                        v-model="motivoSeleccionado"
-                        class="w-full border rounded-lg px-3 py-2 mb-4"
-                      >
-                        <option disabled value="">Selecciona un motivo</option>
-                        <option v-for="m in motivos" :key="m.id" :value="m.id">
-                          {{ m.nombre }}
-                        </option>
-                      </select>
-
-                      <div class="flex justify-end gap-3">
-                        <button
-                          @click="modalAnulacion = false"
-                          class="px-4 py-2 rounded-lg bg-gray-200 text-gray-800"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          @click="confirmarAnulacion"
-                          class="px-4 py-2 rounded-lg bg-red-600 text-white"
-                          :disabled="!motivoSeleccionado"
-                        >
-                          Confirmar
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
                 </table>
               </div>
               <div v-else class="text-center text-sm text-gray-500 py-6">
@@ -233,11 +216,46 @@
             </div>
           </div>
         </div>
+
+        <!-- Modal de anulación de pago -->
+        <div
+          v-if="modalAnulacion"
+          class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10001]"
+        >
+          <div class="bg-white rounded-xl shadow-lg w-full max-w-sm p-6">
+            <h3 class="text-lg font-semibold mb-4">Anular pago</h3>
+
+            <label class="block text-sm font-medium mb-2">Motivo de anulación</label>
+            <select
+              v-model="motivoSeleccionado"
+              class="w-full border rounded-lg px-3 py-2 mb-4"
+            >
+              <option disabled value="">Selecciona un motivo</option>
+              <option v-for="m in motivos" :key="m.id" :value="m.id">
+                {{ m.nombre }}
+              </option>
+            </select>
+
+            <div class="flex justify-end gap-3">
+              <button
+                @click="modalAnulacion = false"
+                class="px-4 py-2 rounded-lg bg-gray-200 text-gray-800"
+              >
+                Cancelar
+              </button>
+              <button
+                @click="confirmarAnulacion"
+                class="px-4 py-2 rounded-lg bg-red-600 text-white"
+                :disabled="!motivoSeleccionado"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </transition>
   </Teleport>
-
-  
 </template>
 
 <script setup lang="ts">
@@ -253,7 +271,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ 
   (e: 'close'): void
-  (e: 'updated'): void // 👈 Nuevo evento
+  (e: 'updated'): void
 }>()
 
 // Refs
@@ -261,11 +279,24 @@ const factura = ref<any>(null)
 const pagos = ref<any[]>([])
 const loading = ref(false)
 
-// 🔻 Modal de anulación
+// 🔻 Modal de anulación de pago
 const modalAnulacion = ref(false)
 const motivos = ref<any[]>([])
 const motivoSeleccionado = ref<number | null>(null)
 const pagoActual = ref<any>(null)
+
+// 🔻 Modal de confirmación de entrega
+const modalConfirmacionEntrega = ref<{
+  visible: boolean
+  detalleId: number | null
+  nuevoEstado: boolean
+  yaConfirmado: boolean
+}>({
+  visible: false,
+  detalleId: null,
+  nuevoEstado: false,
+  yaConfirmado: false
+})
 
 // 🧾 Formatos
 const formatMoney = (val: number) =>
@@ -277,6 +308,12 @@ const formatMoney = (val: number) =>
 
 const formatDate = (dateStr: string) =>
   dateStr ? new Date(dateStr).toLocaleDateString('es-CO') : '—'
+
+// 🔧 Helper para normalizar el valor de entregado
+const estaEntregado = (detalle: any): boolean => {
+  const val = detalle?.entregado
+  return val === 1 || val === '1' || val === true || val === 'true'
+}
 
 // 🔄 Reaccionar a apertura del modal principal
 watch(() => props.open, async (isOpen) => {
@@ -302,7 +339,7 @@ async function cargarFactura(id: number) {
   }
 }
 
-// 💬 Abrir modal de anulación
+// 💬 Abrir modal de anulación de pago
 async function abrirModalAnulacion(pago: any) {
   pagoActual.value = pago
   motivoSeleccionado.value = null
@@ -327,84 +364,125 @@ async function confirmarAnulacion() {
     await anularPagoFactura(pagoActual.value.id, motivoSeleccionado.value)
     toast.success('Pago anulado correctamente')
     modalAnulacion.value = false
-    await cargarFactura(factura.value.id) // refresca el modal
-    emit('updated')  // 👈 AGREGA ESTA LÍNEA
+    await cargarFactura(factura.value.id)
+    emit('updated')
   } catch (error: any) {
     toast.error('Error al anular el pago')
     console.error(error)
   }
 }
 
-// Función para manejar el cambio en el checkbox de entrega
-function handleEntregaChange(d: any) {
-  if (factura.value.saldo_pendiente > 0 && !confirmarEntrega.value) {
-    // Si hay saldo pendiente, mostrar el modal de confirmación
-    confirmarEntrega.value = true;
-  } else {
-    // Si no hay saldo pendiente, proceder con la entrega
-    procederConEntrega(d);
+// 📦 Manejo de entrega de productos
+function handleEntregaChange(detalle: any, event: Event) {
+  const checkbox = event.target as HTMLInputElement
+  const nuevoEstado = checkbox.checked
+
+  // Si la factura está anulada, no hacer nada
+  if (factura.value.estado?.codigo === 'ANUL') {
+    toast.warning('No se puede entregar una factura anulada')
+    return
   }
-}
 
-const confirmarEntrega = ref(false); // Modal de confirmación de entrega
+  // Si el detalle ya está entregado, no permitir cambios
+  if (estaEntregado(detalle)) {
+    checkbox.checked = true // Mantener marcado
+    toast.info('Este producto ya fue entregado')
+    return
+  }
 
-// Mostrar modal de confirmación cuando hay saldo pendiente
-async function entregarProductos(detalle: any) {
-  const payload = {
-    entregas: [
-      {
-        detalle_id: detalle.id,  // ID de cada detalle
-      }
-    ]
-  };
+  // Prevenir el cambio inmediato del checkbox
+  checkbox.checked = estaEntregado(detalle)
 
-  // Si la factura tiene saldo pendiente, mostrar el modal de confirmación
+  // Si el usuario está desmarcando (intentando "desmarcar" la entrega), no permitirlo
+  if (!nuevoEstado) {
+    toast.warning('No se puede desmarcar una entrega')
+    return
+  }
+
+  // Si la factura tiene saldo pendiente, abrir modal de confirmación
   if (factura.value.saldo_pendiente > 0) {
-    confirmarEntrega.value = true;
-    return;
+    modalConfirmacionEntrega.value = {
+      visible: true,
+      detalleId: detalle.id,
+      nuevoEstado,
+      yaConfirmado: false
+    }
+  } else {
+    // Si está pagada, entregar directamente sin confirmación
+    entregarDirecto(detalle.id)
   }
-
-  // Proceder con la entrega
-  await procederConEntrega(payload);
 }
 
-// Función para proceder con la entrega de productos después de la confirmación
-async function procederConEntrega(d: any) {
+// Entregar sin confirmación (factura pagada)
+async function entregarDirecto(detalleId: number) {
+  const payload = {
+    entregas: [{ detalle_id: detalleId }]
+  }
+
+  try {
+    await entregarFactura(factura.value.id, payload)
+    toast.success('Producto entregado correctamente')
+    await cargarFactura(factura.value.id)
+    emit('updated')
+  } catch (error: any) {
+    toast.error(error.response?.data?.message || 'Error al registrar la entrega')
+    console.error(error)
+  }
+}
+
+// Confirmar y proceder con la entrega (con saldo pendiente)
+async function confirmarYEntregar() {
+  if (!modalConfirmacionEntrega.value.detalleId) return
+
   const payload = {
     entregas: [
       {
-        detalle_id: d.id,  // ID del detalle de la factura
+        detalle_id: modalConfirmacionEntrega.value.detalleId
       }
-    ]
-  };
+    ],
+    forzar: true // 👈 Enviar parámetro para forzar la entrega
+  }
 
   try {
-    // Llamar a la API para registrar la entrega
-    const response = await entregarFactura(factura.value.id, payload);
-    toast.success('Producto entregado correctamente');
-    await cargarFactura(factura.value.id); // Refrescar los datos después de la entrega
-  } catch (error) {
-    toast.error('Error al registrar la entrega');
+    await entregarFactura(factura.value.id, payload)
+    
+    toast.success('Producto entregado correctamente')
+    modalConfirmacionEntrega.value.visible = false
+    
+    // Recargar datos
+    await cargarFactura(factura.value.id)
+    emit('updated')
+  } catch (error: any) {
+    // Si aún retorna 400 (no debería con forzar=true), mostrar error
+    if (error.response?.status === 422) {
+      toast.error(error.response.data.message || 'No se puede entregar una factura anulada')
+    } else {
+      toast.error(error.response?.data?.message || 'Error al registrar la entrega')
+    }
+    modalConfirmacionEntrega.value.visible = false
+    console.error(error)
   }
 }
 
-// Función para confirmar entrega desde el modal
-async function confirmarEntregaModal() {
-  const payload = {
-    entregas: factura.value.detalles
-      .filter(item => item.entregado)  // Solo los ítems entregados
-      .map(item => ({
-        detalle_id: item.id,  // ID de cada detalle
-      }))
-  };
-
-  try {
-    // Procedemos con la entrega si el usuario confirma
-    await procederConEntrega(payload);
-    confirmarEntrega.value = false;  // Cerrar modal de confirmación
-  } catch (error) {
-    toast.error('Error al procesar la entrega');
+// Cancelar la entrega
+function cancelarEntrega() {
+  modalConfirmacionEntrega.value = {
+    visible: false,
+    detalleId: null,
+    nuevoEstado: false,
+    yaConfirmado: false
   }
 }
-
 </script>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

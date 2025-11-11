@@ -277,16 +277,23 @@ export async function verificarAnulacion(facturaId: number): Promise<{
 /**
  * Marcar factura como entregada (detalles específicos)
  */
-export async function entregarFactura(facturaId: number, payload: { entregas: { detalle_id: number }[] }): Promise<{
+export async function entregarFactura(
+  facturaId: number, 
+  payload: { 
+    entregas: { detalle_id: number }[]
+    forzar?: boolean // 👈 NUEVO parámetro opcional
+  }
+): Promise<{
   message: string
-  factura: Factura
+  factura_id: number
+  entrega_total: boolean
 }> {
   try {
     const response = await http.patch(`/facturacion/facturas/${facturaId}/entregar`, payload);
     return response.data;
   } catch (error) {
     console.error('Error marcando entrega:', error);
-    throw new Error(extractErrorMessage(error));
+    throw error; // 👈 Lanzar el error completo para manejarlo en el componente
   }
 }
 
