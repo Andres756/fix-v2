@@ -34,12 +34,12 @@ class PagoFactura extends Model
 
     public function motivoAnulacion()
     {
-        return $this->belongsTo(\App\Models\Facturacion\MotivoAnulacionPago::class, 'motivo_anulacion_id');
+        return $this->belongsTo(MotivoAnulacionPago::class, 'motivo_anulacion_id');
     }
 
     public function anuladoPor()
     {
-        return $this->belongsTo(\App\Models\User::class, 'anulado_por_id');
+        return $this->belongsTo(User::class, 'anulado_por_id');
     }
 
     // --- Relaciones ---

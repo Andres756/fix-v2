@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Facturacion\Factura;
 use App\Models\Facturacion\FacturaDetalle;
 use App\Models\Facturacion\FacturaAuditoria;
+use App\Models\Facturacion\PagoFactura;
 use App\Services\Facturacion\AnulacionFacturaService;
 use Illuminate\Support\Facades\Response;
 use PDF; // usa barryvdh/laravel-dompdf
@@ -701,9 +702,6 @@ class FacturacionController extends Controller
     /**
      * 📊 Resumen de facturación para dashboard
      */
-
-
-
     public function resumen()
     {
         return Cache::remember('facturacion_resumen', 60, function () {
@@ -712,40 +710,43 @@ class FacturacionController extends Controller
                 $inicioMes = now()->startOfMonth()->toDateString();
                 $finMes = now()->endOfMonth()->toDateString();
 
-                // 1️⃣ Ventas del día
-                $ventasDia = \App\Models\Facturacion\Factura::whereDate('fecha_emision', $hoy)
-                    ->whereHas('estado', fn($q) => $q->where('codigo', '!=', 'ANUL'))
-                    ->sum('total');
+                // 1️⃣ Ingresos del día (pagos recibidos hoy, excluyendo los anulados)
+                $ingresosDia = PagoFactura::whereDate('created_at', $hoy)
+                    ->whereNotIn('estado', ['ANULADO', 'anulado'])
+                    ->sum('valor');
 
-                // 2️⃣ Ventas del mes
-                $ventasMes = \App\Models\Facturacion\Factura::whereBetween('fecha_emision', [$inicioMes, $finMes])
+                // 2️⃣ Ventas del mes (facturas emitidas no anuladas)
+                $ventasMes = Factura::whereBetween('fecha_emision', [$inicioMes, $finMes])
                     ->whereHas('estado', fn($q) => $q->where('codigo', '!=', 'ANUL'))
                     ->sum('total');
 
                 // 3️⃣ Facturas pendientes (estado PEND)
-                $pendientes = \App\Models\Facturacion\Factura::whereHas('estado', fn($q) => $q->where('codigo', 'PEND'))
+                $pendientes = Factura::whereHas('estado', fn($q) => $q->where('codigo', 'PEND'))
                     ->count();
 
-                // 4️⃣ Facturas anuladas este mes
-                $anuladasMes = \App\Models\Facturacion\Factura::whereHas('estado', fn($q) => $q->where('codigo', 'ANUL'))
+                // 4️⃣ Dinero pendiente por cobrar este mes (facturas pendientes dentro del mes)
+                $pendienteMes = Factura::whereHas('estado', fn($q) => $q->where('codigo', 'PEND'))
                     ->whereBetween('fecha_emision', [$inicioMes, $finMes])
-                    ->count();
+                    ->sum('total');
 
                 return response()->json([
                     'message' => 'Resumen obtenido correctamente',
                     'data' => [
-                        'ventas_dia' => $ventasDia,
+                        'ingresos_dia' => $ingresosDia,
                         'ventas_mes' => $ventasMes,
                         'facturas_pendientes' => $pendientes,
-                        'anuladas_mes' => $anuladasMes,
+                        'pendiente_mes' => $pendienteMes,
                     ]
                 ]);
             } catch (\Throwable $e) {
                 return response()->json([
                     'message' => 'Error al obtener el resumen de facturación',
                     'error' => $e->getMessage(),
+                    'trace' => config('app.debug') ? $e->getTraceAsString() : null, // opcional: solo muestra trazas en modo debug
                 ], 500);
             }
         });
     }
+
+
 }

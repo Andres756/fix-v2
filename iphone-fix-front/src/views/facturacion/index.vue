@@ -22,13 +22,13 @@
 
   <!-- Tarjetas de resumen -->
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-    <!-- Ventas del día -->
+    <!-- Ingresos del día -->
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm text-gray-600">Ventas del Día</p>
+          <p class="text-sm text-gray-600">Ingresos del Día</p>
           <p class="text-2xl font-bold text-gray-900 mt-1">
-            {{ formatMoney(resumen.ventas_dia) }}
+            {{ formatMoney(resumen.ingresos_dia) }}
           </p>
         </div>
         <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -74,12 +74,14 @@
       </div>
     </div>
 
-    <!-- Anuladas este mes -->
+    <!-- Pendiente por cobrar (mes) -->
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm text-gray-600">Anuladas este Mes</p>
-          <p class="text-2xl font-bold text-gray-900 mt-1">{{ resumen.anuladas_mes }}</p>
+          <p class="text-sm text-gray-600">Pendiente por Cobrar (Mes)</p>
+          <p class="text-2xl font-bold text-gray-900 mt-1">
+            {{ formatMoney(resumen.pendiente_mes) }}
+          </p>
         </div>
         <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
           <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -90,7 +92,6 @@
       </div>
     </div>
   </div>
-
 
     <!-- Filtros -->
     <div class="bg-white rounded-xl shadow-sm p-4 mb-6 border border-gray-200">
@@ -325,7 +326,12 @@ const currentPage = ref(1)
 const showAdvancedFilters = ref(false)
 
 // Resumen
-const resumen = ref({ ventas_dia: 0, ventas_mes: 0, facturas_pendientes: 0, anuladas_mes: 0 })
+const resumen = ref({
+  ingresos_dia: 0,          // 🔹 nuevo (antes ventas_dia)
+  ventas_mes: 0,
+  facturas_pendientes: 0,
+  pendiente_mes: 0           // 🔹 nuevo (antes anuladas_mes)
+})
 
 onMounted(async () => {
   const data = await fetchResumenFacturacion()
