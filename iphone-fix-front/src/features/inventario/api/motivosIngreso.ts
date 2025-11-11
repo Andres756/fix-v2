@@ -1,7 +1,14 @@
-// iphone-fix-front/src/features/inventario/api/motivosIngreso.ts
+// ✅ src/features/inventario/api/motivosIngreso.ts
 import axios from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+// ✅ Usa la variable del .env (VITE_API_BASE_URL)
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL, //
+  headers: {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  },
+})
 
 export interface MotivoIngreso {
   id: number
@@ -11,33 +18,33 @@ export interface MotivoIngreso {
 }
 
 /**
- * Obtiene todos los motivos de ingreso
+ * 📦 Obtiene todos los motivos de ingreso
  */
 export const fetchMotivosIngreso = async (): Promise<MotivoIngreso[]> => {
-  const response = await axios.get(`${API_URL}/api/parametros/motivos-ingreso`)
+  const response = await api.get('/parametros/motivos-ingreso')
   return response.data.data || response.data
 }
 
 /**
- * Crea un nuevo motivo de ingreso
+ * ➕ Crea un nuevo motivo de ingreso
  */
 export const createMotivoIngreso = async (data: { nombre: string; descripcion?: string }) => {
-  const response = await axios.post(`${API_URL}/api/parametros/motivos-ingreso`, data)
+  const response = await api.post('/parametros/motivos-ingreso', data)
   return response.data
 }
 
 /**
- * Actualiza un motivo de ingreso
+ * ✏️ Actualiza un motivo de ingreso
  */
 export const updateMotivoIngreso = async (id: number, data: { nombre: string; descripcion?: string }) => {
-  const response = await axios.put(`${API_URL}/api/parametros/motivos-ingreso/${id}`, data)
+  const response = await api.put(`/parametros/motivos-ingreso/${id}`, data)
   return response.data
 }
 
 /**
- * Elimina un motivo de ingreso
+ * ❌ Elimina un motivo de ingreso
  */
 export const deleteMotivoIngreso = async (id: number) => {
-  const response = await axios.delete(`${API_URL}/api/parametros/motivos-ingreso/${id}`)
+  const response = await api.delete(`/parametros/motivos-ingreso/${id}`)
   return response.data
 }
