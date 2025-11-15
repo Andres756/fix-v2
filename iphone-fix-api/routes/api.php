@@ -44,6 +44,7 @@ use App\Http\Controllers\Api\Inventario\DetallesProductoController;
 use App\Http\Controllers\Api\Inventario\DetallesRepuestoController;
 use App\Http\Controllers\api\Inventario\InventarioExportController;
 use App\Http\Controllers\Api\Inventario\ModelosEquiposController;
+use App\Http\Controllers\Api\Inventario\EstadosEntradaController;
 
 // ─────────────────────────────────────────────
 // Plan Separe
@@ -111,6 +112,10 @@ Route::prefix('parametros')->group(function () {
     Route::apiResource('estados-factura', EstadosFacturaController::class)
         ->parameters(['estados-factura' => 'estado_factura'])->except(['destroy']);
 
+    Route::get('estados-entrada', [EstadosEntradaController::class, 'index']);
+    Route::get('estados-entrada/options', [EstadosEntradaController::class, 'options']);
+    Route::get('estados-entrada/{id}', [EstadosEntradaController::class, 'show']);
+
 });
 
 // ── Inventario & Compras
@@ -118,6 +123,9 @@ Route::prefix('inventario')->group(function () {
     // 📦 Categorías
     Route::apiResource('categorias', CategoriasController::class)
         ->parameters(['categorias' => 'categoria']);
+
+    // Búsqueda de proveedores en vivo
+    Route::get('proveedores/buscar', [EntradasProductoController::class, 'buscarProveedores']);
     
     // 🧾 Proveedores
     Route::apiResource('proveedores', ProveedoresController::class)
@@ -140,8 +148,25 @@ Route::prefix('inventario')->group(function () {
         ->parameters(['salidas-producto' => 'salidas_producto']);
     
     // 📊 Exportar inventario a Excel
-    Route::get('exportar', [\App\Http\Controllers\Api\Inventario\InventarioExportController::class, 'exportar'])
+    Route::get('exportar', [InventarioExportController::class, 'exportar'])
         ->name('inventario.exportar');
+
+        // ✅ NUEVAS RUTAS: Modelos de Equipos
+    Route::get('modelos-equipos/options', [ModelosEquiposController::class, 'options']);
+    Route::get('modelos-equipos/reporte', [ModelosEquiposController::class, 'reporteInventario']);
+    Route::get('modelos-equipos/{modeloEquipo}/equipos', [ModelosEquiposController::class, 'equiposPorModelo']);
+    Route::apiResource('modelos-equipos', ModelosEquiposController::class)
+        ->parameters(['modelos-equipos' => 'modeloEquipo']);
+
+        // Entradas de producto
+    Route::get('entradas-producto', [EntradasProductoController::class, 'index']);
+    Route::post('entradas-producto', [EntradasProductoController::class, 'store']);
+    Route::get('entradas-producto/{id}', [EntradasProductoController::class, 'show']);
+    Route::patch('entradas-producto/{id}/estado', [EntradasProductoController::class, 'updateEstado']);
+    Route::delete('entradas-producto/{id}', [EntradasProductoController::class, 'destroy']);
+    
+    // Búsqueda de clientes en vivo
+    Route::get('clientes/buscar', [EntradasProductoController::class, 'buscarClientes']);
 });
 
 // ── Plan Separe
@@ -228,16 +253,7 @@ Route::get('equipos/{equipoId}/costos', [EquipoOrdenServicioController::class, '
 
 Route::patch('equipos/{equipoId}/estado', [EquipoOrdenServicioController::class, 'actualizarEstado']);
 
-Route::prefix('inventario')->group(function () {
-    // ... tus rutas existentes
-    
-    // ✅ NUEVAS RUTAS: Modelos de Equipos
-    Route::get('modelos-equipos/options', [ModelosEquiposController::class, 'options']);
-    Route::get('modelos-equipos/reporte', [ModelosEquiposController::class, 'reporteInventario']);
-    Route::get('modelos-equipos/{modeloEquipo}/equipos', [ModelosEquiposController::class, 'equiposPorModelo']);
-    Route::apiResource('modelos-equipos', ModelosEquiposController::class)
-        ->parameters(['modelos-equipos' => 'modeloEquipo']);
-});
+
 
 // ── Clientes
 Route::apiResource('clientes', ClienteController::class)
