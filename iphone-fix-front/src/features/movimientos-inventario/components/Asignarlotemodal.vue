@@ -254,7 +254,8 @@ const fleteDistribuido = computed(() => {
 })
 
 const fletePendiente = computed(() => {
-  const fleteTotal = loteSeleccionado.value?.costo_flete || 0
+  // ✅ Convertir a número
+  const fleteTotal = Number(loteSeleccionado.value?.costo_flete) || 0
   return fleteTotal - fleteDistribuido.value
 })
 
@@ -281,13 +282,80 @@ const handleClose = () => {
 
 const cargarLotes = async () => {
   loading.value = true
+  console.log('═══════════════════════════════════════')
+  console.log('🔍 INICIANDO CARGA DE LOTES')
+  console.log('═══════════════════════════════════════')
+  console.log('📦 Props entrada:', props.entrada)
+  console.log('🏢 Proveedor ID:', props.entrada?.proveedor_id)
+  console.log('🎫 Lote actual ID:', props.entrada?.lote_id)
+  console.log('───────────────────────────────────────')
+  
   try {
-    lotes.value = await fetchLotesOptions(props.entrada?.proveedor_id || undefined)
+    const proveedorParam = props.entrada?.proveedor_id || undefined
+    const loteParam = props.entrada?.lote_id || undefined
+    
+    console.log('🔑 PARÁMETROS A ENVIAR:')
+    console.log('  → proveedorId:', proveedorParam)
+    console.log('  → includeLoteId:', loteParam)
+    console.log('───────────────────────────────────────')
+    
+    console.log('📡 Llamando fetchLotesOptions...')
+    const lotesData = await fetchLotesOptions(proveedorParam, loteParam)
+    
+    console.log('═══════════════════════════════════════')
+    console.log('✅ RESPUESTA RECIBIDA')
+    console.log('═══════════════════════════════════════')
+    console.log('📊 Tipo de dato:', typeof lotesData)
+    console.log('📈 Es array?', Array.isArray(lotesData))
+    console.log('🔢 Cantidad de lotes:', lotesData?.length)
+    console.log('📦 Datos completos:', lotesData)
+    console.log('───────────────────────────────────────')
+    
+    if (Array.isArray(lotesData) && lotesData.length > 0) {
+      console.log('📋 DETALLE DE CADA LOTE:')
+      lotesData.forEach((lote, index) => {
+        console.log(`  ${index + 1}. Lote #${lote.id}:`, {
+          numero: lote.numero_lote,
+          usado: lote.usado,
+          costo_flete: lote.costo_flete,
+          proveedor: lote.proveedor_nombre
+        })
+      })
+      console.log('───────────────────────────────────────')
+    }
+    
+    if (Array.isArray(lotesData)) {
+      lotes.value = lotesData
+      console.log('✅ Lotes asignados al estado reactive')
+      console.log('📊 lotes.value ahora contiene:', lotes.value.length, 'lotes')
+    } else {
+      console.error('❌ La respuesta NO es un array:', lotesData)
+      lotes.value = []
+    }
+    
+    if (!lotesData || lotesData.length === 0) {
+      console.warn('⚠️ No hay lotes disponibles')
+      toast.warning('No hay lotes disponibles. Crea uno nuevo con el botón "+ Nuevo Lote"')
+    }
   } catch (error: any) {
-    console.error('Error cargando lotes:', error)
+    console.log('═══════════════════════════════════════')
+    console.error('❌ ERROR CAPTURADO')
+    console.log('═══════════════════════════════════════')
+    console.error('💥 Error:', error)
+    console.error('📄 Mensaje:', error?.message)
+    console.error('🌐 Response:', error?.response)
+    console.error('💾 Data:', error?.response?.data)
+    console.error('📊 Status:', error?.response?.status)
     toast.error('Error al cargar los lotes')
+    lotes.value = []
   } finally {
     loading.value = false
+    console.log('═══════════════════════════════════════')
+    console.log('🏁 CARGA FINALIZADA')
+    console.log('═══════════════════════════════════════')
+    console.log('📊 Estado final de lotes.value:', lotes.value)
+    console.log('🔢 Total de lotes en estado:', lotes.value.length)
+    console.log('═══════════════════════════════════════')
   }
 }
 
@@ -307,7 +375,7 @@ const inicializarDistribucion = () => {
 const distribuirAutomaticamente = () => {
   if (!loteSeleccionado.value || !props.entrada?.items) return
 
-  const fleteTotal = loteSeleccionado.value.costo_flete || 0
+  const fleteTotal = Number(loteSeleccionado.value.costo_flete) || 0  // ✅ ESTO
   const items = props.entrada.items
   
   // Calcular el peso de cada item basado en su subtotal
@@ -347,10 +415,8 @@ const distribuirAutomaticamente = () => {
   
   toast.success('Flete distribuido automáticamente')
 }
-
 const validarDistribucion = () => {
-  // Validar que no se exceda el flete total
-  const fleteTotal = loteSeleccionado.value?.costo_flete || 0
+  const fleteTotal = Number(loteSeleccionado.value?.costo_flete) || 0  // ✅
   const distribuido = fleteDistribuido.value
   
   if (distribuido > fleteTotal) {
@@ -416,21 +482,69 @@ const handleLoteCreado = (nuevoLote: Lote) => {
   toast.success('Lote creado correctamente')
 }
 
-// Lifecycle
 onMounted(() => {
-  cargarLotes()
+  console.log('🎬 onMounted ejecutado')
+  console.log('📦 Entrada en onMounted:', props.entrada)
+  console.log('🚪 Modal abierto?', props.isOpen)
   
-  // Si la entrada ya tiene lote, pre-cargar la distribución
-  if (props.entrada?.lote_id) {
-    form.value.lote_id = props.entrada.lote_id
-    inicializarDistribucion()
+  if (props.isOpen && props.entrada) {
+    console.log('✅ Condiciones OK, llamando cargarLotes()')
+    cargarLotes()
+    
+    // Si la entrada ya tiene lote, pre-cargar la distribución
+    if (props.entrada.lote_id) {
+      form.value.lote_id = props.entrada.lote_id
+      inicializarDistribucion()
+    }
+  } else {
+    console.warn('⚠️ No se cargaron lotes porque:', {
+      isOpen: props.isOpen,
+      tieneEntrada: !!props.entrada
+    })
   }
 })
 
-watch(() => props.entrada, (newVal) => {
-  if (newVal?.lote_id) {
-    form.value.lote_id = newVal.lote_id
-    inicializarDistribucion()
+watch(() => props.isOpen, (isOpen, oldIsOpen) => {
+  console.log('🚪 WATCH isOpen disparado')
+  console.log('  → Valor anterior:', oldIsOpen)
+  console.log('  → Valor nuevo:', isOpen)
+  console.log('  → Tiene entrada?', !!props.entrada)
+  console.log('  → Entrada ID:', props.entrada?.id)
+  console.log('  → Lote ID:', props.entrada?.lote_id)
+  
+  if (isOpen && props.entrada) {
+    console.log('✅ Modal abierto CON entrada, cargando lotes...')
+    cargarLotes()
+    
+    if (props.entrada.lote_id) {
+      console.log('✅ Entrada tiene lote_id:', props.entrada.lote_id)
+      console.log('   Asignando a form.value.lote_id')
+      form.value.lote_id = props.entrada.lote_id
+      inicializarDistribucion()
+      console.log('   form.value.lote_id ahora es:', form.value.lote_id)
+    }
+  } else {
+    console.log('⏭️ No se cargan lotes (modal cerrado o sin entrada)')
+  }
+})
+
+watch(() => props.entrada, (newVal, oldVal) => {
+  console.log('📦 WATCH entrada disparado')
+  console.log('  → Valor anterior:', oldVal)
+  console.log('  → Valor nuevo:', newVal)
+  console.log('  → Modal abierto?', props.isOpen)
+  
+  if (newVal) {
+    if (props.isOpen) {
+      console.log('✅ Entrada cambió y modal está abierto, recargando lotes...')
+      cargarLotes()
+    }
+    
+    if (newVal.lote_id) {
+      console.log('✅ Nueva entrada tiene lote_id:', newVal.lote_id)
+      form.value.lote_id = newVal.lote_id
+      inicializarDistribucion()
+    }
   }
 }, { deep: true })
 </script>

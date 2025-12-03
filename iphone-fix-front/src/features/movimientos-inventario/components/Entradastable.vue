@@ -106,131 +106,134 @@
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="entrada in entradas" :key="entrada.id" class="hover:bg-gray-50">
-            <td class="px-6 py-4 whitespace-nowrap">
-              <div class="text-sm font-medium text-gray-900">#{{ entrada.id }}</div>
-              <div class="text-sm text-gray-500">{{ formatDate(entrada.fecha_entrada) }}</div>
-            </td>
-            <td class="px-6 py-4">
-              <div class="text-sm font-medium text-gray-900">
-                {{ entrada.proveedor?.nombre || entrada.cliente?.nombre || 'N/A' }}
-              </div>
-              <div class="text-sm text-gray-500">
-                <span v-if="entrada.tipo_entrada === 'proveedor'" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                  Proveedor
+          <template v-for="entrada in entradas" :key="entrada.id">
+            <!-- Fila principal -->
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm font-medium text-gray-900">#{{ entrada.id }}</div>
+                <div class="text-sm text-gray-500">{{ formatDate(entrada.fecha_entrada) }}</div>
+              </td>
+              <td class="px-6 py-4">
+                <div class="text-sm font-medium text-gray-900">
+                  {{ entrada.proveedor?.nombre || entrada.cliente?.nombre || 'N/A' }}
+                </div>
+                <div class="text-sm text-gray-500">
+                  <span v-if="entrada.tipo_entrada === 'proveedor'" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                    Proveedor
+                  </span>
+                  <span v-else class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                    Cliente
+                  </span>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm">
+                <span v-if="entrada.lote" class="text-gray-900">
+                  {{ entrada.lote.numero_lote }}
                 </span>
-                <span v-else class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                  Cliente
-                </span>
-              </div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm">
-              <span v-if="entrada.lote" class="text-gray-900">
-                {{ entrada.lote.numero_lote }}
-              </span>
-              <span v-else class="text-gray-400 italic">Sin asignar</span>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <span
-                :class="getEstadoBadgeClass(entrada.estado_entrada?.codigo)"
-                class="px-2 py-1 text-xs font-medium rounded-full"
-              >
-                {{ entrada.estado_entrada?.nombre }}
-              </span>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
-              {{ entrada.items?.length || 0 }}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900">
-              {{ formatCurrency(calcularTotal(entrada)) }}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-              <div class="flex items-center justify-center gap-2">
-                <button
-                  @click="toggleDetalle(entrada.id)"
-                  class="text-gray-600 hover:text-gray-900"
-                  title="Ver detalle"
+                <span v-else class="text-gray-400 italic">Sin asignar</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span
+                  :class="getEstadoBadgeClass(entrada.estado_entrada?.codigo)"
+                  class="px-2 py-1 text-xs font-medium rounded-full"
                 >
-                  <svg
-                    class="w-5 h-5 transition-transform"
-                    :class="{ 'rotate-180': detallesAbiertos.has(entrada.id) }"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                  {{ entrada.estado_entrada?.nombre }}
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                {{ entrada.items?.length || 0 }}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900">
+                {{ formatCurrency(calcularTotal(entrada)) }}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                <div class="flex items-center justify-center gap-2">
+                  <button
+                    @click="toggleDetalle(entrada.id)"
+                    class="text-gray-600 hover:text-gray-900"
+                    title="Ver detalle"
                   >
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                <button
-                  v-if="!entrada.lote_id"
-                  @click="emit('asignar-lote', entrada)"
-                  class="text-purple-600 hover:text-purple-900"
-                  title="Asignar lote"
-                >
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                  </svg>
-                </button>
-                <button
-                  v-else
-                  @click="emit('asignar-lote', entrada)"
-                  class="text-blue-600 hover:text-blue-900"
-                  title="Editar distribución"
-                >
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                  </svg>
-                </button>
-              </div>
-            </td>
-          </tr>
-
-          <!-- Fila expandible con detalles -->
-          <tr v-if="detallesAbiertos.has(entrada.id)" :key="`detalle-${entrada.id}`">
-            <td colspan="7" class="px-6 py-4 bg-gray-50">
-              <div class="text-sm">
-                <h4 class="font-semibold text-gray-900 mb-3">Items de la entrada</h4>
-                <div class="overflow-x-auto">
-                  <table class="min-w-full divide-y divide-gray-200">
-                    <thead>
-                      <tr class="bg-gray-100">
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
-                        <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Cantidad</th>
-                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Costo Unit.</th>
-                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Flete Asig.</th>
-                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total Item</th>
-                      </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                      <tr v-for="item in entrada.items" :key="item.id">
-                        <td class="px-3 py-2 text-sm text-gray-900">
-                          {{ item.inventario?.nombre }}
-                          <span class="text-gray-500 text-xs block">{{ item.inventario?.codigo }}</span>
-                        </td>
-                        <td class="px-3 py-2 text-sm text-center text-gray-900">
-                          {{ item.cantidad }}
-                        </td>
-                        <td class="px-3 py-2 text-sm text-right text-gray-900">
-                          {{ formatCurrency(item.costo_unitario) }}
-                        </td>
-                        <td class="px-3 py-2 text-sm text-right text-gray-600">
-                          {{ formatCurrency(item.costo_flete_asignado || 0) }}
-                        </td>
-                        <td class="px-3 py-2 text-sm text-right font-medium text-gray-900">
-                          {{ formatCurrency(item.costo_total_item || (item.costo_unitario * item.cantidad)) }}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                    <svg
+                      class="w-5 h-5 transition-transform"
+                      :class="{ 'rotate-180': detallesAbiertos.has(entrada.id) }"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    v-if="!entrada.lote_id"
+                    @click="emit('asignar-lote', entrada)"
+                    class="text-purple-600 hover:text-purple-900"
+                    title="Asignar lote"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                  </button>
+                  <button
+                    v-else
+                    @click="emit('asignar-lote', entrada)"
+                    class="text-blue-600 hover:text-blue-900"
+                    title="Editar distribución"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                  </button>
                 </div>
+              </td>
+            </tr>
 
-                <div v-if="entrada.observaciones" class="mt-3 text-sm">
-                  <span class="text-gray-500 font-medium">Observaciones:</span>
-                  <p class="text-gray-700 mt-1">{{ entrada.observaciones }}</p>
+            <!-- ✅ Fila expandible - AHORA DENTRO DEL TEMPLATE -->
+            <tr v-if="detallesAbiertos.has(entrada.id)">
+              <td colspan="7" class="px-6 py-4 bg-gray-50">
+                <div class="text-sm">
+                  <h4 class="font-semibold text-gray-900 mb-3">Items de la entrada</h4>
+                  <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                      <thead>
+                        <tr class="bg-gray-100">
+                          <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
+                          <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Cantidad</th>
+                          <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Costo Unit.</th>
+                          <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Flete Asig.</th>
+                          <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total Item</th>
+                        </tr>
+                      </thead>
+                      <tbody class="bg-white divide-y divide-gray-200">
+                        <tr v-for="item in entrada.items" :key="item.id">
+                          <td class="px-3 py-2 text-sm text-gray-900">
+                            {{ item.inventario?.nombre }}
+                            <span class="text-gray-500 text-xs block">{{ item.inventario?.codigo }}</span>
+                          </td>
+                          <td class="px-3 py-2 text-sm text-center text-gray-900">
+                            {{ item.cantidad }}
+                          </td>
+                          <td class="px-3 py-2 text-sm text-right text-gray-900">
+                            {{ formatCurrency(item.costo_unitario) }}
+                          </td>
+                          <td class="px-3 py-2 text-sm text-right text-gray-600">
+                            {{ formatCurrency(item.costo_flete_asignado || 0) }}
+                          </td>
+                          <td class="px-3 py-2 text-sm text-right font-medium text-gray-900">
+                            {{ formatCurrency(item.costo_total_item || (item.costo_unitario * item.cantidad)) }}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div v-if="entrada.observaciones" class="mt-3 text-sm">
+                    <span class="text-gray-500 font-medium">Observaciones:</span>
+                    <p class="text-gray-700 mt-1">{{ entrada.observaciones }}</p>
+                  </div>
                 </div>
-              </div>
-            </td>
-          </tr>
+              </td>
+            </tr>
+          </template>
         </tbody>
       </table>
     </div>
@@ -277,7 +280,7 @@ import { ref, onMounted } from 'vue'
 import { toast } from 'vue3-toastify'
 import { fetchEntradasInventario, fetchEstadosEntrada } from '../../inventario/api/inventoryEntries'
 import type { EntradaInventario, EstadoEntrada } from '../../inventario/types/inventoryEntry'
-import type { Paginated } from '../types/pagination'
+import type { Paginated } from '../../../shared/types/pagination'
 
 // Emits
 const emit = defineEmits<{
@@ -386,7 +389,23 @@ const calcularTotal = (entrada: EntradaInventario) => {
   if (!entrada.items || entrada.items.length === 0) return 0
   
   return entrada.items.reduce((total, item) => {
-    return total + (item.costo_total_item || (item.costo_unitario * item.cantidad))
+    // Convertir a número y manejar valores inválidos
+    const costoTotal = Number(item.costo_total_item) || 0
+    const costoUnitario = Number(item.costo_unitario) || 0
+    const cantidad = Number(item.cantidad) || 0
+    
+    // Si tiene costo_total_item válido, usarlo
+    if (costoTotal > 0) {
+      return total + costoTotal
+    }
+    
+    // Si no, calcular desde costo unitario y cantidad
+    if (costoUnitario > 0 && cantidad > 0) {
+      return total + (costoUnitario * cantidad)
+    }
+    
+    // Si ninguno es válido, no sumar nada
+    return total
   }, 0)
 }
 

@@ -137,8 +137,20 @@ export async function fetchLotes(
 /**
  * Obtiene lotes para selector (sin paginación)
  */
-export async function fetchLotesOptions(proveedorId?: number): Promise<Lote[]> {
-  const params = proveedorId ? { proveedor_id: proveedorId } : {};
+export async function fetchLotesOptions(
+  proveedorId?: number, 
+  includeLoteId?: number
+): Promise<Lote[]> {
+  const params: any = {};
+  
+  if (proveedorId) {
+    params.proveedor_id = proveedorId;
+  }
+  
+  if (includeLoteId) {
+    params.include_lote_id = includeLoteId;
+  }
+  
   const { data } = await http.get('/inventario/lotes/options', { params });
   return (data?.data ?? data ?? []) as Lote[];
 }

@@ -95,7 +95,6 @@
     />
 
     <AsignarLoteModal
-      v-if="modalAsignarLote.isOpen"
       :is-open="modalAsignarLote.isOpen"
       :entrada="modalAsignarLote.entrada"
       @close="modalAsignarLote.isOpen = false"
@@ -120,7 +119,7 @@ import EntradasTable from '../../../features/movimientos-inventario/components/E
 import SalidasTable from '../../../features/movimientos-inventario/components/SalidasTable.vue'
 import LotesTable from '../../../features/movimientos-inventario/components/Lotestable.vue'
 import KardexView from '../../../features/movimientos-inventario/components/Kardexview.vue'
-import AsignarLoteModal from '../../../features/movimientos-inventario/components/AsignarLoteModal.vue'
+import AsignarLoteModal from '../../../features/movimientos-inventario/components/Asignarlotemodal.vue'
 import CrearLoteModal from '../../../features/movimientos-inventario/components/CrearLoteModal.vue'
 
 // 🔄 Reutilizamos el modal de entrada del módulo inventario

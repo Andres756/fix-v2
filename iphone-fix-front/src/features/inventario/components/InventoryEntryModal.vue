@@ -479,6 +479,7 @@ import type { Proveedor, Cliente, EstadoEntrada } from '../types/inventoryEntry'
 import { fetchClientes } from '../../OrdenServicio/api/clientes'
 import { fetchInventario } from '../api/inventario'
 import type { Option } from '../../../shared/types/common'
+import { formatErrorForToast } from '../../../shared/utils/errorHandler'
 
 // Props & Emits
 interface Props {
@@ -749,20 +750,24 @@ const handleSubmit = async () => {
     emit('success')
     resetForm()
     closeModal()
-  } catch (error: any) {
-    console.error('❌ Error al crear entrada:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-      url: error.config?.url
-    })
-    console.groupEnd()
-    
-    const message = error?.response?.data?.message || error?.message || 'Error al registrar la entrada'
-    toast.error(message)
-  } finally {
-    isSubmitting.value = false
-  }
+    } catch (error: any) {
+      // Extraer el mensaje de error usando el helper
+      const errorMessage = formatErrorForToast(error)
+
+      // Log completo para debugging
+      console.error('❌ Error al crear entrada:', {
+        message: errorMessage,
+        fullError: error,
+        response: error?.response?.data,
+        status: error?.response?.status,
+        url: error?.config?.url
+      })
+      
+      // Mostrar toast con el mensaje formateado
+      toast.error(errorMessage)
+    } finally {
+      isSubmitting.value = false
+    }
 }
 
 const resetForm = () => {

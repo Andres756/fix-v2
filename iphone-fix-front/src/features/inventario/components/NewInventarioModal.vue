@@ -229,6 +229,7 @@ import CoreFields from './forms/CoreFields.vue';
 import EquipoFields from './forms/EquipoFields.vue';
 import ProductoFields from './forms/ProductoFields.vue';
 import RepuestoFields from './forms/RepuestoFields.vue';
+import { extractErrorMessage, formatErrorForToast } from '../../../shared/utils/errorHandler'
 
 import {
   createInventario,
@@ -409,23 +410,25 @@ async function guardar() {
     emit('created');
     reset();
     } catch (e: any) {
-      // Captura errores de validación del backend
-      const res = e?.response?.data;
-      let errorMessage = 'No se pudo guardar el producto.';
+      // Extraer el mensaje de error usando el helper
+      const errorMessage = formatErrorForToast(e)
 
-      if (res?.errors) {
-        const firstErrorKey = Object.keys(res.errors)[0];
-        errorMessage = res.errors[firstErrorKey][0] || errorMessage;
-      } else if (res?.message) {
-        errorMessage = res.message;
-      }
+      // Guardar el error en el estado para mostrarlo en el formulario
+      error.value = errorMessage
 
-      error.value = errorMessage;
-      showToast(errorMessage, 'error');
-      console.error('Error al crear inventario:', res || e);
+      // Mostrar toast con el mensaje formateado
+      showToast(errorMessage, 'error')
+
+      // Log completo para debugging
+      console.error('Error al crear inventario:', {
+        message: errorMessage,
+        fullError: e,
+        response: e?.response?.data,
+        status: e?.response?.status
+      })
     } finally {
-    saving.value = false;
-  }
+      saving.value = false;
+    }
 }
 
 function showToast(message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') {

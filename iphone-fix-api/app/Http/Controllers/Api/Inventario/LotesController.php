@@ -1,5 +1,4 @@
 <?php
-// app/Http/Controllers/Api/Inventario/LotesController.php
 
 namespace App\Http\Controllers\Api\Inventario;
 
@@ -11,7 +10,7 @@ use Illuminate\Support\Facades\Validator;
 class LotesController extends Controller
 {
     /**
-     * Listar lotes con paginación y filtros
+     * Listar todos los lotes con paginación y filtros
      */
     public function index(Request $request)
     {
@@ -20,94 +19,94 @@ class LotesController extends Controller
                 'lotes.*',
                 'proveedores.nombre as proveedor_nombre',
                 'proveedores.nit as proveedor_nit',
+                DB::raw('(SELECT COUNT(*) FROM entradas_producto WHERE entradas_producto.lote_id = lotes.id) as entradas_count')
             ])
             ->leftJoin('proveedores', 'lotes.proveedor_id', '=', 'proveedores.id');
 
-        // Filtros
+        // ✅ NUEVO: Filtro por disponibilidad usando campo usado
+        if ($request->has('disponibles') && $request->disponibles == 'true') {
+            $query->where('lotes.usado', false);
+        }
+
+        // Filtro por estado de uso (usado/sin usar)
+        if ($request->has('usado')) {
+            $query->where('lotes.usado', $request->usado === 'true');
+        }
+
+        // Filtros existentes
         if ($request->has('proveedor_id')) {
             $query->where('lotes.proveedor_id', $request->proveedor_id);
         }
 
         if ($request->has('fecha_desde')) {
-            $query->where('lotes.fecha_ingreso', '>=', $request->fecha_desde);
+            $query->whereDate('lotes.fecha_ingreso', '>=', $request->fecha_desde);
         }
 
         if ($request->has('fecha_hasta')) {
-            $query->where('lotes.fecha_ingreso', '<=', $request->fecha_hasta);
-        }
-
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('lotes.numero_lote', 'like', "%{$search}%")
-                  ->orWhere('proveedores.nombre', 'like', "%{$search}%");
-            });
+            $query->whereDate('lotes.fecha_ingreso', '<=', $request->fecha_hasta);
         }
 
         $perPage = $request->get('per_page', 15);
         $lotes = $query->orderBy('lotes.fecha_ingreso', 'desc')
-                      ->orderBy('lotes.id', 'desc')
-                      ->paginate($perPage);
+                       ->orderBy('lotes.id', 'desc')
+                       ->paginate($perPage);
 
-        // Formatear los datos
-        $lotes->getCollection()->transform(function ($lote) {
-            return [
-                'id' => $lote->id,
-                'numero_lote' => $lote->numero_lote,
-                'proveedor_id' => $lote->proveedor_id,
-                'costo_flete' => $lote->costo_flete,
-                'fecha_ingreso' => $lote->fecha_ingreso,
-                'notas' => $lote->notas,
-                'created_at' => $lote->created_at,
-                'updated_at' => $lote->updated_at,
-                'proveedor' => $lote->proveedor_id ? [
-                    'id' => $lote->proveedor_id,
-                    'nombre' => $lote->proveedor_nombre,
-                    'nit' => $lote->proveedor_nit,
-                ] : null,
-            ];
-        });
-
-        return response()->json($lotes);
+        // ✅ Formato consistente con otros endpoints
+        return response()->json([
+            'data' => $lotes->items(),
+            'pagination' => [
+                'current_page' => $lotes->currentPage(),
+                'last_page' => $lotes->lastPage(),
+                'per_page' => $lotes->perPage(),
+                'total' => $lotes->total(),
+                'from' => $lotes->firstItem(),
+                'to' => $lotes->lastItem(),
+            ]
+        ]);
     }
 
     /**
-     * Obtener lotes para selector (sin paginación)
+     * Listar lotes para selector (sin paginación)
+     * ✅ MODIFICADO: Solo muestra lotes que NO han sido usados
+     * ✅ NUEVO: Si se pasa include_lote_id, incluye ese lote aunque esté usado
      */
     public function options(Request $request)
     {
         $query = DB::table('lotes')
             ->select([
-                'lotes.*',
+                'lotes.id',
+                'lotes.numero_lote',
+                'lotes.proveedor_id',
+                'lotes.costo_flete',
+                'lotes.fecha_ingreso',
+                'lotes.usado',
                 'proveedores.nombre as proveedor_nombre',
-                'proveedores.nit as proveedor_nit',
             ])
             ->leftJoin('proveedores', 'lotes.proveedor_id', '=', 'proveedores.id');
 
+        // ✅ NUEVO: Si se especifica un lote a incluir, agregarlo a la consulta
+        $includeLoteId = $request->get('include_lote_id');
+        
+        if ($includeLoteId) {
+            // Incluir lotes no usados O el lote específico
+            $query->where(function($q) use ($includeLoteId) {
+                $q->where('lotes.usado', false)
+                  ->orWhere('lotes.id', $includeLoteId);
+            });
+        } else {
+            // Solo lotes no usados
+            $query->where('lotes.usado', false);
+        }
+
+        // Filtro opcional por proveedor
         if ($request->has('proveedor_id')) {
             $query->where('lotes.proveedor_id', $request->proveedor_id);
         }
 
         $lotes = $query->orderBy('lotes.fecha_ingreso', 'desc')
-                      ->orderBy('lotes.numero_lote', 'desc')
-                      ->get()
-                      ->map(function ($lote) {
-                          return [
-                              'id' => $lote->id,
-                              'numero_lote' => $lote->numero_lote,
-                              'proveedor_id' => $lote->proveedor_id,
-                              'costo_flete' => $lote->costo_flete,
-                              'fecha_ingreso' => $lote->fecha_ingreso,
-                              'notas' => $lote->notas,
-                              'proveedor' => $lote->proveedor_id ? [
-                                  'id' => $lote->proveedor_id,
-                                  'nombre' => $lote->proveedor_nombre,
-                                  'nit' => $lote->proveedor_nit,
-                              ] : null,
-                          ];
-                      });
+                       ->get();
 
-        return response()->json(['data' => $lotes]);
+        return response()->json($lotes);
     }
 
     /**
@@ -118,8 +117,8 @@ class LotesController extends Controller
         $validator = Validator::make($request->all(), [
             'numero_lote' => 'required|string|max:100|unique:lotes,numero_lote',
             'proveedor_id' => 'nullable|exists:proveedores,id',
-            'costo_flete' => 'nullable|numeric|min:0',
-            'fecha_ingreso' => 'nullable|date',
+            'costo_flete' => 'required|numeric|min:0',
+            'fecha_ingreso' => 'required|date',
             'notas' => 'nullable|string|max:1000',
         ]);
 
@@ -134,13 +133,14 @@ class LotesController extends Controller
             $loteId = DB::table('lotes')->insertGetId([
                 'numero_lote' => $request->numero_lote,
                 'proveedor_id' => $request->proveedor_id,
-                'costo_flete' => $request->costo_flete ?? 0,
-                'fecha_ingreso' => $request->fecha_ingreso ?? now()->toDateString(),
+                'costo_flete' => $request->costo_flete,
+                'fecha_ingreso' => $request->fecha_ingreso,
                 'notas' => $request->notas,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
 
+            // Obtener el lote creado con datos del proveedor
             $lote = DB::table('lotes')
                 ->select([
                     'lotes.*',
@@ -190,6 +190,7 @@ class LotesController extends Controller
                 'lotes.*',
                 'proveedores.nombre as proveedor_nombre',
                 'proveedores.nit as proveedor_nit',
+                DB::raw('(SELECT COUNT(*) FROM entradas_producto WHERE entradas_producto.lote_id = lotes.id) as entradas_count')
             ])
             ->leftJoin('proveedores', 'lotes.proveedor_id', '=', 'proveedores.id')
             ->where('lotes.id', $id)
@@ -208,6 +209,8 @@ class LotesController extends Controller
             'costo_flete' => $lote->costo_flete,
             'fecha_ingreso' => $lote->fecha_ingreso,
             'notas' => $lote->notas,
+            'usado' => (bool)$lote->usado, // ✅ Campo explícito
+            'entradas_count' => $lote->entradas_count, // ✅ Para información adicional
             'created_at' => $lote->created_at,
             'updated_at' => $lote->updated_at,
             'proveedor' => $lote->proveedor_id ? [
@@ -222,6 +225,7 @@ class LotesController extends Controller
 
     /**
      * Actualizar un lote
+     * ✅ MODIFICADO: No permite editar costo_flete si el lote ya está marcado como usado
      */
     public function update(Request $request, $id)
     {
@@ -249,6 +253,13 @@ class LotesController extends Controller
                 ], 404);
             }
 
+            // ✅ RESTRICCIÓN: Si el lote está marcado como usado, NO permitir editar costo_flete
+            if ($lote->usado && $request->has('costo_flete')) {
+                return response()->json([
+                    'message' => "No se puede editar el costo de flete porque este lote ya está en uso. El flete ya fue asignado a una o más entradas de inventario.",
+                ], 409);
+            }
+
             $updateData = [];
 
             if ($request->has('numero_lote')) {
@@ -259,7 +270,8 @@ class LotesController extends Controller
                 $updateData['proveedor_id'] = $request->proveedor_id;
             }
 
-            if ($request->has('costo_flete')) {
+            // Solo permitir actualizar costo_flete si NO está usado
+            if ($request->has('costo_flete') && !$lote->usado) {
                 $updateData['costo_flete'] = $request->costo_flete;
             }
 
@@ -293,6 +305,7 @@ class LotesController extends Controller
                 'costo_flete' => $loteActualizado->costo_flete,
                 'fecha_ingreso' => $loteActualizado->fecha_ingreso,
                 'notas' => $loteActualizado->notas,
+                'usado' => (bool)$loteActualizado->usado,
                 'created_at' => $loteActualizado->created_at,
                 'updated_at' => $loteActualizado->updated_at,
                 'proveedor' => $loteActualizado->proveedor_id ? [
@@ -317,6 +330,7 @@ class LotesController extends Controller
 
     /**
      * Eliminar un lote
+     * ✅ YA EXISTÍA: No permite eliminar si tiene entradas asociadas
      */
     public function destroy($id)
     {
@@ -328,7 +342,7 @@ class LotesController extends Controller
 
             if ($entradasCount > 0) {
                 return response()->json([
-                    'message' => "No se puede eliminar el lote porque tiene {$entradasCount} entradas asociadas",
+                    'message' => "No se puede eliminar el lote porque tiene {$entradasCount} entrada(s) asignada(s). Primero desasigne las entradas.",
                 ], 409);
             }
 

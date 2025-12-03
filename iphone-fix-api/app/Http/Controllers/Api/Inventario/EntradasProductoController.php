@@ -71,7 +71,18 @@ class EntradasProductoController extends Controller
                           ->orderBy('id', 'desc')
                           ->paginate($perPage);
 
-        return response()->json($entradas);
+        // Transformar al formato esperado por el frontend
+        return response()->json([
+            'data' => $entradas->items(),
+            'pagination' => [
+                'current_page' => $entradas->currentPage(),
+                'last_page' => $entradas->lastPage(),
+                'per_page' => $entradas->perPage(),
+                'total' => $entradas->total(),
+                'from' => $entradas->firstItem(),
+                'to' => $entradas->lastItem(),
+            ]
+        ]);
     }
 
     /**
@@ -277,19 +288,22 @@ class EntradasProductoController extends Controller
         DB::beginTransaction();
         try {
             $entrada = EntradaProducto::with('items')->findOrFail($id);
+            $loteId = $entrada->lote_id; // Guardar antes de eliminar
+            
             $entrada->delete();
+            
+            // ✅ Si tenía lote asignado, marcarlo como disponible de nuevo
+            if ($loteId) {
+                DB::table('lotes')
+                    ->where('id', $loteId)
+                    ->update(['usado' => false]);
+            }
+            
             DB::commit();
 
             return response()->json([
                 'message' => 'Entrada eliminada exitosamente'
             ]);
-
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            DB::rollBack();
-            return response()->json([
-                'message' => 'Entrada no encontrada'
-            ], 404);
-            
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -434,6 +448,12 @@ class EntradasProductoController extends Controller
             }
 
             DB::commit();
+
+            if ($entrada->lote_id) {
+                DB::table('lotes')
+                    ->where('id', $entrada->lote_id)
+                    ->update(['usado' => true]);
+            }
 
             // Recargar la entrada con todas las relaciones
             $entrada->load([
