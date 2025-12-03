@@ -182,8 +182,9 @@ const pageTitle = computed(() => {
   const titles: Record<string, string> = {
     '/': 'Dashboard',
     '/inventario': 'Inventario',
+    '/inventario/movimientos': 'Movimientos de Inventario', // 🆕 AGREGAR ESTA LÍNEA
     '/facturacion': 'Facturación',
-    '/plan-separe': 'Plan Separe',  // 👈 AGREGAR ESTA LÍNEA
+    '/plan-separe': 'Plan Separe',
     '/ordenes': 'Órdenes de Servicio',
     '/ordenes/tecnicos': 'Tecnicos',
     '/gastos': 'Gastos',

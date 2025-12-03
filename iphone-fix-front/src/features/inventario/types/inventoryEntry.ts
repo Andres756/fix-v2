@@ -27,6 +27,16 @@ export interface Cliente {
   direccion?: string;
 }
 
+export interface Lote {
+  id: number;
+  numero_lote: string;
+  proveedor_id?: number | null;
+  costo_flete?: number;
+  fecha_ingreso?: string;
+  notas?: string;
+  proveedor?: Proveedor | null;
+}
+
 export interface Origen {
   tipo: 'proveedor' | 'cliente';
   id: number;
@@ -61,10 +71,7 @@ export interface EntradaInventario {
 
   estado_entrada?: EstadoEntrada;
   
-  lote?: {
-    id: number;
-    numero_lote: string;
-  } | null;
+  lote?: Lote | null;
 
   usuario?: {
     id: number;
@@ -80,6 +87,8 @@ export interface EntradaInventarioItem {
   inventario_id: number;
   cantidad: number;
   costo_unitario: number;
+  costo_flete_asignado?: number; // 🆕 Flete distribuido
+  costo_total_item?: number; // 🆕 Total calculado
   
   inventario?: {
     id: number;
@@ -108,4 +117,22 @@ export interface CreateEntradaInventarioPayload {
 
 export interface UpdateEstadoEntradaPayload {
   estado_entrada_id: number;
+}
+
+// 🆕 Payload para asignar/actualizar lote con distribución de flete
+export interface AsignarLotePayload {
+  lote_id: number;
+  distribucion_flete?: {
+    item_id: number;
+    costo_flete_asignado: number;
+  }[];
+}
+
+// 🆕 Para crear un nuevo lote
+export interface CreateLotePayload {
+  numero_lote: string;
+  proveedor_id?: number | null;
+  costo_flete?: number;
+  fecha_ingreso?: string;
+  notas?: string;
 }

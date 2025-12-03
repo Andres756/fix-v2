@@ -345,4 +345,158 @@ class EntradasProductoController extends Controller
 
         return response()->json(['data' => $clientes]);
     }
+
+    /**
+     * Asignar o actualizar lote con distribución de flete
+     */
+    public function asignarLote(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'lote_id' => 'required|exists:lotes,id',
+            'distribucion_flete' => 'nullable|array',
+            'distribucion_flete.*.item_id' => 'required|exists:entradas_producto_items,id',
+            'distribucion_flete.*.costo_flete_asignado' => 'required|numeric|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Error de validación',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            $entrada = EntradaProducto::with('items')->findOrFail($id);
+            
+            // Obtener el lote
+            $lote = DB::table('lotes')->where('id', $request->lote_id)->first();
+            
+            if (!$lote) {
+                return response()->json([
+                    'message' => 'Lote no encontrado'
+                ], 404);
+            }
+
+            // Validar que la suma de flete distribuido no exceda el flete del lote
+            if ($request->has('distribucion_flete')) {
+                $fleteTotal = $lote->costo_flete ?? 0;
+                $fleteDistribuido = collect($request->distribucion_flete)
+                    ->sum('costo_flete_asignado');
+
+                if ($fleteDistribuido > $fleteTotal) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'El flete distribuido excede el flete total del lote',
+                        'flete_lote' => $fleteTotal,
+                        'flete_distribuido' => $fleteDistribuido,
+                    ], 422);
+                }
+
+                // Validar que todos los items pertenezcan a esta entrada
+                $itemIds = $entrada->items->pluck('id')->toArray();
+                $itemIdsDistribucion = collect($request->distribucion_flete)
+                    ->pluck('item_id')
+                    ->toArray();
+
+                $invalidItems = array_diff($itemIdsDistribucion, $itemIds);
+                if (!empty($invalidItems)) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'Algunos items no pertenecen a esta entrada',
+                        'invalid_items' => $invalidItems,
+                    ], 422);
+                }
+            }
+
+            // Actualizar el lote en la entrada
+            $entrada->update([
+                'lote_id' => $request->lote_id
+            ]);
+
+            // Actualizar la distribución de flete en los items
+            if ($request->has('distribucion_flete')) {
+                foreach ($request->distribucion_flete as $distribucion) {
+                    DB::table('entradas_producto_items')
+                        ->where('id', $distribucion['item_id'])
+                        ->where('entrada_id', $entrada->id)
+                        ->update([
+                            'costo_flete_asignado' => $distribucion['costo_flete_asignado'],
+                            'updated_at' => now(),
+                        ]);
+                }
+            }
+
+            // Recalcular el costo promedio ponderado para cada producto afectado
+            // usando el nuevo costo_total_item que incluye el flete
+            foreach ($entrada->items as $item) {
+                $this->recalcularCostoPromedio($item->inventario_id);
+            }
+
+            DB::commit();
+
+            // Recargar la entrada con todas las relaciones
+            $entrada->load([
+                'proveedor:id,nombre,nit',
+                'cliente:id,nombre,documento',
+                'lote:id,numero_lote,costo_flete',
+                'motivoIngreso:id,nombre',
+                'estadoEntrada:id,nombre,codigo,color',
+                'usuario:id,name',
+                'items.inventario:id,nombre,codigo,stock,costo'
+            ]);
+
+            return response()->json([
+                'message' => 'Lote asignado y flete distribuido correctamente',
+                'data' => $entrada
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Error al asignar el lote',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Recalcular el costo promedio ponderado de un inventario
+     * considerando el costo_total_item (que incluye flete)
+     */
+    private function recalcularCostoPromedio($inventarioId)
+    {
+        // Obtener todas las entradas de este inventario
+        $items = DB::table('entradas_producto_items')
+            ->where('inventario_id', $inventarioId)
+            ->get();
+
+        if ($items->isEmpty()) {
+            return;
+        }
+
+        $stockTotal = 0;
+        $costoTotalAcumulado = 0;
+
+        foreach ($items as $item) {
+            $stockTotal += $item->cantidad;
+            
+            // Usar costo_total_item si está disponible, sino calcular manualmente
+            $costoItem = $item->costo_total_item ?? 
+                (($item->costo_unitario * $item->cantidad) + ($item->costo_flete_asignado ?? 0));
+            
+            $costoTotalAcumulado += $costoItem;
+        }
+
+        // Calcular costo promedio ponderado
+        $costoPromedio = $stockTotal > 0 ? ($costoTotalAcumulado / $stockTotal) : 0;
+
+        // Actualizar el inventario
+        DB::table('inventarios')
+            ->where('id', $inventarioId)
+            ->update([
+                'costo' => $costoPromedio,
+                'updated_at' => now(),
+            ]);
+    }
 }

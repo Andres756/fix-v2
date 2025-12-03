@@ -130,6 +130,8 @@ Route::prefix('inventario')->group(function () {
     // 🧾 Proveedores
     Route::apiResource('proveedores', ProveedoresController::class)
         ->parameters(['proveedores' => 'proveedor']);
+
+    Route::get('lotes/options', [LotesController::class, 'options']);
     
     // 📦 Lotes
     Route::apiResource('lotes', LotesController::class)
@@ -138,6 +140,8 @@ Route::prefix('inventario')->group(function () {
     // 🏷️ Inventarios
     Route::apiResource('inventarios', InventariosController::class)
         ->parameters(['inventarios' => 'inventario']);
+
+    Route::patch('entradas-producto/{id}/lote', [EntradasProductoController::class, 'asignarLote']);
     
     // 📥 Entradas de producto
     Route::apiResource('entradas-producto', EntradasProductoController::class)

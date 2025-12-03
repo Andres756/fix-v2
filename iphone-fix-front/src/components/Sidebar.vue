@@ -45,17 +45,60 @@
             </router-link>
           </li>
 
-          <!-- Inventario - Indigo -->
-          <li class="nav-item" :class="{ active: activeRoute === 'inventario' }">
-            <router-link to="/inventario" class="nav-link nav-link-inventario" @click="handleNavClick">
+          <!-- 🆕 Inventario CON SUBMENÚ -->
+          <li class="nav-item nav-item-with-submenu" 
+              :class="{ 
+                active: activeRoute === 'inventario' || activeRoute === 'inventario-movimientos',
+                'submenu-open': inventarioSubmenuOpen 
+              }">
+            
+            <div class="nav-link nav-link-inventario" @click="toggleInventarioSubmenu">
               <div class="nav-icon indigo-icon">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                   <path d="M21 16V8a2 2 0 0 0-1-1.73L12 2 4 6.27A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73L12 22l8-4.27A2 2 0 0 0 21 16z" stroke="currentColor" stroke-width="2"/>
                 </svg>
               </div>
               <span class="nav-text">Inventario</span>
-              <div class="nav-indicator indigo-indicator" v-if="activeRoute === 'inventario'"></div>
-            </router-link>
+              
+              <svg 
+                class="submenu-arrow" 
+                :class="{ 'submenu-arrow-open': inventarioSubmenuOpen }"
+                width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <polyline points="9,18 15,12 9,6" stroke="currentColor" stroke-width="2"/>
+              </svg>
+              
+              <div class="nav-indicator indigo-indicator" 
+                   v-if="activeRoute === 'inventario' || activeRoute === 'inventario-movimientos'">
+              </div>
+            </div>
+
+            <transition name="submenu-slide">
+              <ul class="nav-submenu" v-if="inventarioSubmenuOpen">
+                <li class="nav-submenu-item" :class="{ active: activeRoute === 'inventario' }">
+                  <router-link to="/inventario" class="nav-submenu-link" @click="handleNavClick">
+                    <div class="submenu-icon">
+                      <!-- Productos - Agregar stroke="currentColor" -->
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <rect x="3" y="3" width="18" height="18" rx="2" stroke-width="2"/>
+                      </svg>
+                    </div>
+                    <span>Productos</span>
+                  </router-link>
+                </li>
+                
+                <li class="nav-submenu-item" :class="{ active: activeRoute === 'inventario-movimientos' }">
+                  <router-link to="/inventario/movimientos" class="nav-submenu-link" @click="handleNavClick">
+                    <div class="submenu-icon">
+                    <!-- Movimientos - Agregar stroke="currentColor" -->
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
+                    </svg>
+                    </div>
+                    <span>Movimientos</span>
+                  </router-link>
+                </li>
+              </ul>
+            </transition>
           </li>
 
           <!-- Facturación - Verde -->
@@ -165,21 +208,6 @@
                 <div class="nav-indicator cyan-indicator" v-if="activeRoute === 'parametrizacion'"></div>
               </router-link>
             </li>
-
-            <!-- Usuarios - Rosa 
-            <li class="nav-item" :class="{ active: activeRoute === 'usuarios' }">
-              <router-link to="/usuarios" class="nav-link nav-link-usuarios" @click="handleNavClick">
-                <div class="nav-icon pink-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2"/>
-                    <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
-                  </svg>
-                </div>
-                <span class="nav-text">Usuarios</span>
-                <div class="nav-indicator pink-indicator" v-if="activeRoute === 'usuarios'"></div>
-              </router-link>
-            </li>
-            -->
           </ul>
         </div>
       </nav>
@@ -196,7 +224,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 interface Props {
@@ -211,6 +239,11 @@ defineEmits<{
 
 const route = useRoute()
 const isMobile = ref(false)
+const inventarioSubmenuOpen = ref(false)
+
+const toggleInventarioSubmenu = () => {
+  inventarioSubmenuOpen.value = !inventarioSubmenuOpen.value
+}
 
 const activeRoute = computed(() => {
   const path = route.path
@@ -218,6 +251,7 @@ const activeRoute = computed(() => {
   if (path === '/') return 'dashboard'
   if (path.startsWith('/ordenes/tecnicos')) return 'tecnicos'
   if (path.startsWith('/ordenes')) return 'ordenes'
+  if (path === '/inventario/movimientos') return 'inventario-movimientos'
   if (path.startsWith('/inventario')) return 'inventario'
   if (path.startsWith('/facturacion')) return 'facturacion'
   if (path.startsWith('/plan-separe')) return 'plan-separe'
@@ -238,6 +272,15 @@ const handleNavClick = () => {
 const checkMobile = () => {
   isMobile.value = window.innerWidth < 768
 }
+
+// Busca el watch y agrega el else:
+watch(() => route.path, (newPath) => {
+  if (newPath.startsWith('/inventario')) {
+    inventarioSubmenuOpen.value = true
+  } else {
+    inventarioSubmenuOpen.value = false  // 👈 AGREGAR
+  }
+}, { immediate: true })
 
 onMounted(() => {
   checkMobile()
@@ -647,6 +690,91 @@ onUnmounted(() => {
   }
 }
 
+/* 🆕 ESTILOS PARA SUBMENÚ */
+.nav-item-with-submenu {
+  position: relative;
+}
+
+.nav-item-with-submenu .nav-link {
+  cursor: pointer;
+  user-select: none;
+}
+
+.submenu-arrow {
+  margin-left: auto;
+  transition: transform 0.3s ease;
+  opacity: 0.6;
+}
+
+.submenu-arrow-open {
+  transform: rotate(90deg);
+}
+
+.nav-submenu {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 45px;
+  overflow: hidden;
+}
+
+.nav-submenu-item {
+  margin: 0;
+}
+
+.nav-submenu-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  font-size: 14px;
+  border-radius: 8px;
+  margin: 4px 0;
+  transition: all 0.2s ease;
+}
+
+.nav-submenu-link:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.nav-submenu-item.active .nav-submenu-link {
+  background: rgba(99, 102, 241, 0.3);
+  color: #fff;
+  font-weight: 500;
+}
+
+.submenu-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  opacity: 0.8;
+}
+
+.submenu-slide-enter-active,
+.submenu-slide-leave-active {
+  transition: all 0.3s ease;
+}
+
+.submenu-slide-enter-from,
+.submenu-slide-leave-to {
+  opacity: 0;
+  max-height: 0;
+}
+
+.submenu-slide-enter-to,
+.submenu-slide-leave-from {
+  opacity: 1;
+  max-height: 200px;
+}
+
+.nav-item-with-submenu.submenu-open .nav-link {
+  background: rgba(255, 255, 255, 0.05);
+}
+
 /* Scrollbar styles */
 .sidebar::-webkit-scrollbar {
   width: 4px;
@@ -663,5 +791,19 @@ onUnmounted(() => {
 
 .sidebar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.4);
+}
+
+.submenu-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  opacity: 0.8;
+  color: rgba(255, 255, 255, 0.7); /* 👈 AGREGAR */
+}
+
+.submenu-icon svg {  /* 👈 AGREGAR TODO ESTE BLOQUE */
+  stroke: currentColor;
 }
 </style>
