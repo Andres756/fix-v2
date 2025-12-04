@@ -249,7 +249,8 @@ const loteSeleccionado = computed(() => {
 
 const fleteDistribuido = computed(() => {
   return form.value.distribucion_flete.reduce((sum, item) => {
-    return sum + (item.costo_flete_asignado || 0)
+    const valor = Number(item.costo_flete_asignado) || 0
+    return sum + valor
   }, 0)
 })
 
@@ -275,8 +276,17 @@ const puedeGuardar = computed(() => {
   return form.value.lote_id !== null && fletePendiente.value === 0
 })
 
+const resetForm = () => {
+  form.value = {
+    lote_id: null,
+    distribucion_flete: [],
+  }
+  console.log('🔄 Formulario reseteado')
+}
+
 // Métodos
 const handleClose = () => {
+  resetForm()  // ✅ Resetear antes de cerrar
   emit('close')
 }
 
@@ -368,8 +378,10 @@ const inicializarDistribucion = () => {
 
   form.value.distribucion_flete = props.entrada.items.map(item => ({
     item_id: item.id,
-    costo_flete_asignado: item.costo_flete_asignado || 0,
+    costo_flete_asignado: Number(item.costo_flete_asignado) || 0,  // ✅ Convertir a número
   }))
+  
+  console.log('🎯 Distribución inicializada:', form.value.distribucion_flete)
 }
 
 const distribuirAutomaticamente = () => {
@@ -504,27 +516,22 @@ onMounted(() => {
   }
 })
 
-watch(() => props.isOpen, (isOpen, oldIsOpen) => {
-  console.log('🚪 WATCH isOpen disparado')
-  console.log('  → Valor anterior:', oldIsOpen)
-  console.log('  → Valor nuevo:', isOpen)
-  console.log('  → Tiene entrada?', !!props.entrada)
-  console.log('  → Entrada ID:', props.entrada?.id)
-  console.log('  → Lote ID:', props.entrada?.lote_id)
+watch(() => props.isOpen, (isOpen) => {
+  console.log('🚪 Modal cambió a:', isOpen)
   
   if (isOpen && props.entrada) {
-    console.log('✅ Modal abierto CON entrada, cargando lotes...')
+    console.log('✅ Modal abierto, cargando lotes...')
     cargarLotes()
     
     if (props.entrada.lote_id) {
       console.log('✅ Entrada tiene lote_id:', props.entrada.lote_id)
-      console.log('   Asignando a form.value.lote_id')
       form.value.lote_id = props.entrada.lote_id
       inicializarDistribucion()
-      console.log('   form.value.lote_id ahora es:', form.value.lote_id)
     }
-  } else {
-    console.log('⏭️ No se cargan lotes (modal cerrado o sin entrada)')
+  } else if (!isOpen) {
+    // ✅ NUEVO: Resetear cuando se cierra
+    console.log('🔄 Modal cerrado, reseteando formulario')
+    resetForm()
   }
 })
 

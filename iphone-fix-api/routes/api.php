@@ -45,6 +45,7 @@ use App\Http\Controllers\Api\Inventario\DetallesRepuestoController;
 use App\Http\Controllers\api\Inventario\InventarioExportController;
 use App\Http\Controllers\Api\Inventario\ModelosEquiposController;
 use App\Http\Controllers\Api\Inventario\EstadosEntradaController;
+use App\Http\Controllers\Api\Inventario\CostosAdicionalesController;
 
 // ─────────────────────────────────────────────
 // Plan Separe
@@ -229,6 +230,27 @@ Route::prefix('facturacion')->middleware(['auth:sanctum'])->group(function () {
 
 // ── Busquedad repuestos
 Route::get('inventario/repuestos/search', [InventariosController::class, 'searchRepuestos']);
+
+// Costos adicionales en entradas (compra de equipos usados)
+Route::prefix('inventario/entradas/{entrada}')->group(function () {
+    // Obtener todos los costos
+    Route::get('costos-adicionales', [CostosAdicionalesController::class, 'index']);
+    
+    // Obtener resumen
+    Route::get('costos-adicionales/resumen', [CostosAdicionalesController::class, 'resumen']);
+    
+    // Agregar costos
+    Route::post('costos-adicionales/repuestos-inventario', 
+        [CostosAdicionalesController::class, 'addRepuestoInventario']);
+    Route::post('costos-adicionales/repuestos-externos', 
+        [CostosAdicionalesController::class, 'addRepuestoExterno']);
+    Route::post('costos-adicionales/pagos-tecnicos', 
+        [CostosAdicionalesController::class, 'addPagoTecnico']);
+    
+    // Eliminar costo
+    Route::delete('costos-adicionales/{tipo}/{id}', 
+        [CostosAdicionalesController::class, 'destroy']);
+});
 
 // Tecnicos
 Route::get('tecnicos', [TecnicoController::class, 'index']);

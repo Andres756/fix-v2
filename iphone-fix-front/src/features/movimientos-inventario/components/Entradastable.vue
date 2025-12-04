@@ -183,6 +183,18 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                     </svg>
                   </button>
+                  <button
+                    v-if="entrada.tipo_entrada === 'cliente'"
+                    @click="abrirModalCostos(entrada)"
+                    class="text-purple-600 hover:text-purple-700"
+                    title="Agregar costos adicionales"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5"
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M2 7h20M2 11h20M5 15h2m3 0h9m2-8H2v10a2 2 0 002 2h16a2 2 0 002-2V7z"/>
+                    </svg>
+                  </button>
                 </div>
               </td>
             </tr>
@@ -273,6 +285,15 @@
       </div>
     </div>
   </div>
+
+<!-- Modal Costos Adicionales -->
+<CostosAdicionalesModal
+  :is-open="modalCostos.isOpen"
+  :entrada="modalCostos.entrada"
+  @close="cerrarModalCostos"
+  @success="handleCostosActualizados"
+/>
+
 </template>
 
 <script setup lang="ts">
@@ -281,6 +302,7 @@ import { toast } from 'vue3-toastify'
 import { fetchEntradasInventario, fetchEstadosEntrada } from '../../inventario/api/inventoryEntries'
 import type { EntradaInventario, EstadoEntrada } from '../../inventario/types/inventoryEntry'
 import type { Paginated } from '../../../shared/types/pagination'
+import CostosAdicionalesModal from './CostosAdicionalesModal.vue'
 
 // Emits
 const emit = defineEmits<{
@@ -300,6 +322,30 @@ const filtros = ref({
   fecha_desde: null as string | null,
   fecha_hasta: null as string | null,
 })
+
+const modalCostos = ref({
+  isOpen: false,
+  entrada: null as EntradaInventario | null
+})
+
+const abrirModalCostos = (entrada: EntradaInventario) => {
+  modalCostos.value = {
+    isOpen: true,
+    entrada
+  }
+}
+
+const cerrarModalCostos = () => {
+  modalCostos.value = {
+    isOpen: false,
+    entrada: null
+  }
+}
+
+const handleCostosActualizados = () => {
+  cargarEntradas() // Recargar tabla
+  cerrarModalCostos()
+}
 
 // Métodos
 const cargarEntradas = async (page = 1) => {
