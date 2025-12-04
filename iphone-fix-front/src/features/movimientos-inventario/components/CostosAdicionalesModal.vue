@@ -1,19 +1,13 @@
 <template>
   <Teleport to="body">
-    <div
-      v-if="isOpen"
-      class="fixed inset-0 z-[999] flex items-center justify-center"
-      @click.self="handleClose"
-    >
-      <!-- Fondo con gradiente + blur -->
+    <Transition name="modal-fade">
       <div
-        class="absolute inset-0 bg-gradient-to-br from-black/70 via-black/50 to-gray-900/60 backdrop-blur-sm"
-      ></div>
-
-      <!-- Contenedor de la Modal -->
-      <div
-        class="relative bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-fadeIn"
+        v-if="isOpen"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[999] p-4"
+        @click.self="handleClose"
       >
+        <Transition name="modal-slide">
+          <div class="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col">
         <!-- Header -->
         <div class="px-6 py-4 border-b border-gray-200">
           <h2 class="text-xl font-semibold text-gray-900">
@@ -44,20 +38,23 @@
           </nav>
         </div>
 
-        <!-- Body scrollable -->
+        <!-- Body -->
         <div class="flex-1 overflow-y-auto p-6">
+          <!-- Tab: Repuestos Inventario -->
           <RepuestosInventarioSection
             v-if="activeTab === 'inventario'"
             :entrada-id="entrada!.id"
             @changed="handleCostosChanged"
           />
 
+          <!-- Tab: Repuestos Externos -->
           <RepuestosExternosSection
             v-if="activeTab === 'externos'"
             :entrada-id="entrada!.id"
             @changed="handleCostosChanged"
           />
 
+          <!-- Tab: Pagos Técnicos -->
           <PagosTecnicosSection
             v-if="activeTab === 'tecnicos'"
             :entrada-id="entrada!.id"
@@ -65,9 +62,20 @@
           />
         </div>
 
-        <!-- Footer -->
+        <!-- Footer con Resumen -->
         <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
-          <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+          <!-- Loading skeleton -->
+          <div v-if="loadingResumen" class="animate-pulse">
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+              <div v-for="i in 5" :key="i">
+                <div class="h-3 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div class="h-6 bg-gray-200 rounded w-full"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Resumen cargado -->
+          <div v-else class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
             <div>
               <p class="text-xs text-gray-600">Costo Base</p>
               <p class="text-lg font-semibold text-gray-900">
@@ -109,26 +117,18 @@
             </button>
           </div>
         </div>
+          </div>
+        </Transition>
       </div>
-    </div>
+    </Transition>
   </Teleport>
 </template>
 
-<style scoped>
-@keyframes fadeIn {
-  from { opacity: 0; transform: scale(.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-.animate-fadeIn {
-  animation: fadeIn .25s ease-out;
-}
-</style>
-
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch } from 'vue'
 import { toast } from 'vue3-toastify'
-import { fetchResumenCostos } from '../api/costosAdicionales'
-import type { ResumenCostos } from '../api/costosAdicionales'
+import type { ResumenCostos } from '../api/CostosAdicionales'
+import { fetchResumenCostos } from '../api/CostosAdicionales'
 import type { EntradaInventario } from '../../inventario/types/inventoryEntry'
 import RepuestosInventarioSection from './RepuestosInventarioSection.vue'
 import RepuestosExternosSection from './RepuestosExternosSection.vue'
@@ -150,6 +150,7 @@ const emit = defineEmits<{
 
 // Estado
 const activeTab = ref<'inventario' | 'externos' | 'tecnicos'>('inventario')
+const loadingResumen = ref(true)
 const resumen = ref<ResumenCostos>({
   costo_base: 0,
   repuestos_inventario: 0,
@@ -174,9 +175,12 @@ const cargarResumen = async () => {
   if (!props.entrada) return
 
   try {
+    loadingResumen.value = true
     resumen.value = await fetchResumenCostos(props.entrada.id)
   } catch (error: any) {
     console.error('Error cargando resumen:', error)
+  } finally {
+    loadingResumen.value = false
   }
 }
 
@@ -196,13 +200,40 @@ const formatCurrency = (value: number) => {
 // Lifecycle
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen && props.entrada) {
-    cargarResumen()
-  }
-})
-
-onMounted(() => {
-  if (props.isOpen && props.entrada) {
+    // Cargar inmediatamente sin bloquear apertura
     cargarResumen()
   }
 })
 </script>
+
+<style scoped>
+/* Transición del backdrop */
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
+}
+
+/* Transición del modal */
+.modal-slide-enter-active {
+  transition: all 0.25s ease-out;
+}
+
+.modal-slide-leave-active {
+  transition: all 0.2s ease-in;
+}
+
+.modal-slide-enter-from {
+  opacity: 0;
+  transform: scale(0.95) translateY(-20px);
+}
+
+.modal-slide-leave-to {
+  opacity: 0;
+  transform: scale(0.95) translateY(20px);
+}
+</style>

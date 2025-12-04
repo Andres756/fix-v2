@@ -4,7 +4,7 @@
     <div class="flex items-center justify-between">
       <div>
         <h4 class="text-sm font-medium text-gray-700">
-          📦 Repuestos del Inventario
+          Repuestos del Inventario
         </h4>
         <p class="text-xs text-gray-500 mt-1">
           Se descontará automáticamente del stock

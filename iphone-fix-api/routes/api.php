@@ -252,6 +252,9 @@ Route::prefix('inventario/entradas/{entrada}')->group(function () {
         [CostosAdicionalesController::class, 'destroy']);
 });
 
+Route::get('inventario/items/{inventario}/historial-costos', 
+    [CostosAdicionalesController::class, 'historialCostos']);
+
 // Tecnicos
 Route::get('tecnicos', [TecnicoController::class, 'index']);
 Route::get('/tecnicos/{id}/dashboard', [TecnicoController::class, 'dashboard']); // ✅ NUEVA

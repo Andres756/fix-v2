@@ -172,8 +172,23 @@
             </td>
           </tr>
           <tr v-if="loading">
-            <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-500">
-              Cargando pagos…
+            <td colspan="6" class="px-4 py-6">
+              <div class="animate-pulse space-y-3">
+                <div class="flex gap-4">
+                  <div class="h-4 bg-gray-200 rounded w-2/5"></div>
+                  <div class="h-4 bg-gray-200 rounded w-1/6"></div>
+                  <div class="h-4 bg-gray-200 rounded w-1/5"></div>
+                  <div class="h-4 bg-gray-200 rounded w-1/5"></div>
+                  <div class="h-4 bg-gray-200 rounded flex-1"></div>
+                </div>
+                <div class="flex gap-4">
+                  <div class="h-4 bg-gray-200 rounded w-1/3"></div>
+                  <div class="h-4 bg-gray-200 rounded w-1/5"></div>
+                  <div class="h-4 bg-gray-200 rounded w-1/4"></div>
+                  <div class="h-4 bg-gray-200 rounded w-1/6"></div>
+                  <div class="h-4 bg-gray-200 rounded flex-1"></div>
+                </div>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -190,8 +205,8 @@ import {
   fetchCostosAdicionales,
   addPagoTecnico,
   deleteCostoAdicional,
-} from '../api/costosAdicionales'
-import type { PagoTecnico, CreatePagoTecnicoPayload } from '../api/costosAdicionales'
+} from '../api/CostosAdicionales'
+import type { PagoTecnico, CreatePagoTecnicoPayload } from '../api/CostosAdicionales'
 
 const props = defineProps<{
   entradaId: number
