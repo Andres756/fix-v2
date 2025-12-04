@@ -3,7 +3,7 @@
     <Transition name="modal-fade">
       <div
         v-if="isOpen"
-        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[999] p-4"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4"
         @click.self="handleClose"
       >
         <Transition name="modal-slide">
@@ -25,13 +25,16 @@
                 <label class="block text-sm font-medium text-gray-700 mb-2">
                   Estado Actual
                 </label>
-                <div class="flex items-center gap-2">
+                <div v-if="entrada?.estado_entrada" class="flex items-center gap-2">
                   <span
-                    :style="{ backgroundColor: entrada?.estadoEntrada?.color || '#6B7280' }"
+                    :style="{ backgroundColor: entrada.estado_entrada.color || '#6B7280' }"
                     class="px-3 py-1 rounded-full text-white text-sm font-medium"
                   >
-                    {{ entrada?.estadoEntrada?.nombre || 'N/A' }}
+                    {{ entrada.estado_entrada.nombre }}
                   </span>
+                </div>
+                <div v-else class="text-sm text-gray-500 italic">
+                  Sin estado asignado
                 </div>
               </div>
 
@@ -56,18 +59,49 @@
                 </select>
               </div>
 
-              <!-- Preview del nuevo estado -->
-              <div v-if="estadoSeleccionado" class="p-3 bg-gray-50 rounded-lg">
-                <p class="text-xs text-gray-600 mb-1">Vista previa:</p>
+              <!-- Preview del nuevo estado con descripción -->
+              <div v-if="estadoSeleccionado" class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <p class="text-xs text-gray-600 mb-2">Vista previa:</p>
                 <span
                   :style="{ backgroundColor: estadoSeleccionado.color }"
-                  class="inline-block px-3 py-1 rounded-full text-white text-sm font-medium"
+                  class="inline-block px-3 py-1 rounded-full text-white text-sm font-medium mb-2"
                 >
                   {{ estadoSeleccionado.nombre }}
                 </span>
-                <p class="text-xs text-gray-500 mt-2">
+                <p class="text-xs text-gray-700 mb-2">
                   {{ estadoSeleccionado.descripcion }}
                 </p>
+                
+                <!-- Información sobre impacto -->
+                <div class="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-800">
+                  <p class="font-medium mb-1">Impacto del cambio:</p>
+                  <ul class="list-disc list-inside space-y-1">
+                    <li v-if="estadoSeleccionado.codigo === 'completada'">
+                      ✅ Inventario ingresa
+                    </li>
+                    <li v-if="estadoSeleccionado.codigo === 'completada'">
+                      💰 Gasto registrado
+                    </li>
+                    
+                    <li v-if="estadoSeleccionado.codigo === 'en_transito'">
+                      ❌ Inventario NO ingresa
+                    </li>
+                    <li v-if="estadoSeleccionado.codigo === 'en_transito'">
+                      💰 Gasto registrado (deuda)
+                    </li>
+                    
+                    <li v-if="estadoSeleccionado.codigo === 'pendiente_pago'">
+                      ✅ Inventario ingresa
+                    </li>
+                    <li v-if="estadoSeleccionado.codigo === 'pendiente_pago'">
+                      ⏳ Gasto pendiente
+                    </li>
+                    
+                    <li v-if="estadoSeleccionado.codigo === 'parcial'">
+                      ⚠️ Requiere indicar qué llegó
+                    </li>
+                  </ul>
+                </div>
               </div>
 
               <!-- Observaciones -->

@@ -8,15 +8,30 @@
           <h1 class="text-3xl font-bold text-gray-900">Facturación</h1>
           <p class="mt-1 text-sm text-gray-600">Gestiona facturas, pagos y anulaciones</p>
         </div>
-        <button
-          @click="showNuevaFactura = true"
-          class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2 shadow-sm"
-        >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          Nueva Factura
-        </button>
+        <div class="flex items-center gap-2">
+          <!-- Botón Nueva Factura -->
+          <button
+            @click="showNuevaFactura = true"
+            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2 shadow-sm text-sm"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Nueva Factura
+          </button>
+          
+          <!-- Botón Agregar Cliente -->
+          <button
+            @click="showNuevoCliente = true"
+            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center gap-2 shadow-sm text-sm"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            Agregar Cliente
+          </button>
+        </div>
       </div>
     </div>
 
@@ -295,6 +310,13 @@
       @success="onFacturaAnulada"
     />
   </div>
+
+  <!-- Modal Nuevo Cliente -->
+  <NuevoClienteModal
+    :open="showNuevoCliente"
+    @close="showNuevoCliente = false"
+    @success="onClienteCreado"
+  />
 </template>
 
 <script setup lang="ts">
@@ -308,6 +330,7 @@ import NuevaFacturaModal from '../../features/Facturacion/components/NuevaFactur
 import PagoModal from '../../features/Facturacion/components/PagoModal.vue'
 import AnularFacturaModal from '../../features/Facturacion/components/AnularFacturaModal.vue'
 import FacturaDetalleModal from '../../features/Facturacion/components/FacturaDetalleModal.vue'
+import NuevoClienteModal from '../../features/OrdenServicio/components/ClienteModal.vue'
 
 // API
 import { 
@@ -317,6 +340,19 @@ import {
   convertirPrefactura
 } from '../../features/Facturacion/api/facturacion'
 import type { Factura, FiltrosFactura } from '../../features/Facturacion/types/factura'
+
+// Importar el modal de cliente
+
+
+// Estado del modal
+const showNuevoCliente = ref(false)
+
+// Método al crear cliente
+const onClienteCreado = () => {
+  toast.success('Cliente creado correctamente')
+  showNuevoCliente.value = false
+  // Opcional: recargar lista si tienes
+}
 
 // Estado
 const isLoading = ref(false)

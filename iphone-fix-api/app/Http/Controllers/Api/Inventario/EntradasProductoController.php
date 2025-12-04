@@ -614,26 +614,50 @@ class EntradasProductoController extends Controller
                 ], 404);
             }
 
-            // Validaciones según el estado
-            if ($nuevoEstado->codigo === 'completada') {
-                // Verificar que todos los items tengan stock
-                foreach ($entrada->items as $item) {
-                    if ($item->inventario->stock < $item->cantidad) {
-                        return response()->json([
-                            'message' => "No hay suficiente stock de {$item->inventario->nombre}. Stock actual: {$item->inventario->stock}, Requerido: {$item->cantidad}",
-                        ], 422);
-                    }
-                }
+            // ============================================
+            // LÓGICA SEGÚN ESTADO
+            // ============================================
+            
+            switch ($nuevoEstado->codigo) {
+                case 'completada':
+                    // ✅ Inventario: Ingresa todo
+                    // ✅ Gastos: Registra todo
+                    $this->procesarIngresoInventario($entrada, 'completo');
+                    $this->registrarGastoEntrada($entrada, 'completo');
+                    break;
+                    
+                case 'en_transito':
+                    // ❌ Inventario: NO ingresa nada (no llegó)
+                    // ✅ Gastos: Registra deuda (ya se pagó)
+                    $this->registrarGastoEntrada($entrada, 'deuda');
+                    break;
+                    
+                case 'parcial':
+                    // ⚠️ Inventario: Requiere indicar QUÉ llegó
+                    // ✅ Gastos: Registra lo recibido
+                    // NOTA: Requiere implementación adicional para indicar qué items llegaron
+                    return response()->json([
+                        'message' => 'Estado parcial requiere indicar qué items llegaron. Use el endpoint de recepción parcial.',
+                        'info' => 'POST /inventario/entradas-producto/{id}/recepcion-parcial'
+                    ], 422);
+                    
+                case 'pendiente_pago':
+                    // ✅ Inventario: Ingresa todo
+                    // ⏳ Gastos: Pendiente (por pagar)
+                    $this->procesarIngresoInventario($entrada, 'completo');
+                    $this->registrarGastoEntrada($entrada, 'pendiente');
+                    break;
             }
 
             // Actualizar estado
+            $estadoAnteriorId = $entrada->estado_entrada_id;
             $entrada->estado_entrada_id = $request->estado_entrada_id;
             $entrada->save();
 
-            // Registrar en log de cambios (opcional - crear tabla si no existe)
+            // Registrar en log de cambios
             DB::table('entradas_cambios_estado')->insert([
                 'entrada_id' => $entrada->id,
-                'estado_anterior_id' => $estadoAnterior->id,
+                'estado_anterior_id' => $estadoAnteriorId,
                 'estado_nuevo_id' => $nuevoEstado->id,
                 'observaciones' => $request->observaciones,
                 'usuario_id' => Auth::id(),

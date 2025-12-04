@@ -430,7 +430,7 @@ class FacturacionController extends Controller
         $request->validate([
             'entregas' => 'nullable|array',
             'entregas.*.detalle_id' => 'required_with:entregas|integer|exists:factura_detalle,id',
-            'forzar' => 'nullable|boolean', // 👈 NUEVO parámetro
+            'forzar' => 'nullable|boolean',
         ]);
 
         $usuarioId = Auth::id() ?? $request->input('usuario_id');
@@ -444,7 +444,8 @@ class FacturacionController extends Controller
         // 🚨 Validar si la factura está pagada (SOLO si no se fuerza)
         $forzar = $request->input('forzar', false);
         
-        if ($factura->estado?->codigo !== '2' && !$forzar) {
+        // ✅ CORREGIR: Comparar con el CÓDIGO del estado, no con el ID
+        if ($factura->estado?->codigo !== 'PAGA' && !$forzar) {
             // Si la factura no está pagada Y no se está forzando, pedir confirmación
             return response()->json([
                 'message' => 'La factura tiene saldo pendiente. ¿Está seguro de que desea entregar este producto?',

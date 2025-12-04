@@ -147,27 +147,45 @@
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
-                    <tr v-for="detalle in facturaInfo.detalles" :key="detalle.id" 
-                        :class="{
-                            'opacity-60 line-through text-gray-500 bg-gray-50': detalle.estado?.codigo === 'ANUL'  // Estilo visual para anulados
-                        }"
-                        class="border-t border-gray-100">
-                      <td class="px-4 py-2">
-                        <input
-                          type="checkbox"
-                          v-model="selectedDetalles"
-                          :value="detalle.id"
-                          :disabled="detalle.estado?.codigo === 'ANUL'"
-                          class="w-4 h-4 text-red-600 border-gray-300 rounded"
-                        />
-                      </td>
-                      <td class="px-4 py-2 text-gray-800">{{ detalle.descripcion || detalle.inventario?.nombre || '—' }}</td>
-                      <td class="px-4 py-2 text-right">{{ detalle.cantidad }}</td>
-                      <td class="px-4 py-2 text-right">{{ formatMoney(detalle.precio_unitario || 0) }}</td>
-                      <td class="px-4 py-2 text-right font-medium text-gray-900">
-                        {{ formatMoney((detalle.cantidad || 1) * (detalle.precio_unitario || 0)) }}
-                      </td>
-                    </tr>
+                      <tr v-for="detalle in facturaInfo.detalles" :key="detalle.id" 
+                          :class="{
+                              'opacity-60 line-through text-gray-500 bg-gray-50': detalle.estado?.codigo === 'ANUL'
+                          }"
+                          class="border-t border-gray-100">
+                        <td class="px-4 py-2">
+                          <input
+                            type="checkbox"
+                            v-model="selectedDetalles"
+                            :value="detalle.id"
+                            :disabled="detalle.estado?.codigo === 'ANUL'"
+                            class="w-4 h-4 text-red-600 border-gray-300 rounded"
+                          />
+                        </td>
+                        <td class="px-4 py-2 text-gray-800">
+                          {{ detalle.descripcion || detalle.inventario?.nombre || '—' }}
+                        </td>
+                        <td class="px-4 py-2 text-right">{{ detalle.cantidad || 0 }}</td>
+                        
+                        <!-- ✅ FIX: Probar múltiples campos de precio -->
+                        <td class="px-4 py-2 text-right">
+                          {{ formatMoney(
+                            detalle.precio_unitario || 
+                            detalle.precio_venta || 
+                            detalle.precio || 
+                            detalle.subtotal / (detalle.cantidad || 1) || 
+                            0
+                          ) }}
+                        </td>
+                        
+                        <!-- ✅ FIX: Calcular total correctamente -->
+                        <td class="px-4 py-2 text-right font-medium text-gray-900">
+                          {{ formatMoney(
+                            detalle.total ||
+                            detalle.subtotal ||
+                            ((detalle.precio_unitario || detalle.precio_venta || detalle.precio || 0) * (detalle.cantidad || 1))
+                          ) }}
+                        </td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
@@ -331,6 +349,13 @@ const verifyAnulacion = async () => {
   try {
     // Obtener info de la factura
     facturaInfo.value = await getFactura(props.facturaId)
+    
+    // ✅ AGREGAR ESTE LOG PARA DEBUG
+    console.log('📊 Factura info:', facturaInfo.value)
+    console.log('📦 Detalles:', facturaInfo.value.detalles)
+    if (facturaInfo.value.detalles?.length > 0) {
+      console.log('🔍 Primer detalle:', facturaInfo.value.detalles[0])
+    }
     
     // Verificar si se puede anular
     const result = await verificarAnulacion(props.facturaId)
