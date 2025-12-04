@@ -86,6 +86,75 @@ class EntradasProductoController extends Controller
     }
 
     /**
+     * Buscar entradas por código de producto, proveedor o cliente
+     * GET /inventario/entradas-producto/buscar?q={query}
+     */
+    public function buscar(Request $request)
+    {
+        $query = $request->get('q', '');
+        
+        if (strlen($query) < 2) {
+            return response()->json([
+                'data' => []
+            ]);
+        }
+
+        try {
+            $entradas = EntradaProducto::with([
+                'proveedor:id,nombre,nit',
+                'cliente:id,nombre,documento',
+                'lote:id,numero_lote',
+                'motivoIngreso:id,nombre',
+                'estadoEntrada:id,nombre,codigo,color',
+                'usuario:id,name',
+                'items.inventario:id,nombre,codigo,stock,costo'
+            ])
+            ->where(function($q) use ($query) {
+                // Buscar por ID de entrada
+                if (is_numeric($query)) {
+                    $q->where('id', $query);
+                }
+                
+                // Buscar en proveedor
+                $q->orWhereHas('proveedor', function($subQ) use ($query) {
+                    $subQ->where('nombre', 'LIKE', "%{$query}%")
+                        ->orWhere('nit', 'LIKE', "%{$query}%");
+                });
+                
+                // Buscar en cliente
+                $q->orWhereHas('cliente', function($subQ) use ($query) {
+                    $subQ->where('nombre', 'LIKE', "%{$query}%")
+                        ->orWhere('documento', 'LIKE', "%{$query}%");
+                });
+                
+                // Buscar en lote
+                $q->orWhereHas('lote', function($subQ) use ($query) {
+                    $subQ->where('numero_lote', 'LIKE', "%{$query}%");
+                });
+                
+                // Buscar por código o nombre de producto
+                $q->orWhereHas('items.inventario', function($subQ) use ($query) {
+                    $subQ->where('codigo', 'LIKE', "%{$query}%")
+                        ->orWhere('nombre', 'LIKE', "%{$query}%");
+                });
+            })
+            ->orderBy('created_at', 'desc')
+            ->limit(20)
+            ->get();
+
+            return response()->json([
+                'data' => $entradas
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error en la búsqueda',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Crear nueva entrada
      */
     public function store(Request $request)
@@ -518,5 +587,83 @@ class EntradasProductoController extends Controller
                 'costo' => $costoPromedio,
                 'updated_at' => now(),
             ]);
+    }
+
+    /**
+     * Cambiar el estado de una entrada
+     * PATCH /inventario/entradas-producto/{id}/estado
+     */
+    public function cambiarEstado(Request $request, $id)
+    {
+        $request->validate([
+            'estado_entrada_id' => 'required|exists:estados_entrada,id',
+            'observaciones' => 'nullable|string|max:500',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $entrada = EntradaProducto::with(['items.inventario', 'estadoEntrada'])->findOrFail($id);
+            $estadoAnterior = $entrada->estadoEntrada;
+            
+            // Obtener nuevo estado
+            $nuevoEstado = DB::table('estados_entrada')->find($request->estado_entrada_id);
+            
+            if (!$nuevoEstado) {
+                return response()->json([
+                    'message' => 'Estado no encontrado'
+                ], 404);
+            }
+
+            // Validaciones según el estado
+            if ($nuevoEstado->codigo === 'completada') {
+                // Verificar que todos los items tengan stock
+                foreach ($entrada->items as $item) {
+                    if ($item->inventario->stock < $item->cantidad) {
+                        return response()->json([
+                            'message' => "No hay suficiente stock de {$item->inventario->nombre}. Stock actual: {$item->inventario->stock}, Requerido: {$item->cantidad}",
+                        ], 422);
+                    }
+                }
+            }
+
+            // Actualizar estado
+            $entrada->estado_entrada_id = $request->estado_entrada_id;
+            $entrada->save();
+
+            // Registrar en log de cambios (opcional - crear tabla si no existe)
+            DB::table('entradas_cambios_estado')->insert([
+                'entrada_id' => $entrada->id,
+                'estado_anterior_id' => $estadoAnterior->id,
+                'estado_nuevo_id' => $nuevoEstado->id,
+                'observaciones' => $request->observaciones,
+                'usuario_id' => Auth::id(),
+                'created_at' => now(),
+            ]);
+
+            DB::commit();
+
+            // Recargar con relaciones
+            $entrada->load([
+                'proveedor:id,nombre,nit',
+                'cliente:id,nombre,documento',
+                'lote:id,numero_lote',
+                'motivoIngreso:id,nombre',
+                'estadoEntrada:id,nombre,codigo,color',
+                'usuario:id,name',
+                'items.inventario:id,nombre,codigo,stock,costo'
+            ]);
+
+            return response()->json([
+                'message' => "Estado cambiado de '{$estadoAnterior->nombre}' a '{$nuevoEstado->nombre}'",
+                'data' => $entrada
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Error al cambiar el estado',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }

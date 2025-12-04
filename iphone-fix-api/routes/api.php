@@ -119,6 +119,9 @@ Route::prefix('parametros')->group(function () {
 
 });
 
+Route::get('entradas-producto/buscar', [EntradasProductoController::class, 'buscar']);
+Route::patch('entradas-producto/{id}/estado', [EntradasProductoController::class, 'cambiarEstado']);
+
 // ── Inventario & Compras
 Route::prefix('inventario')->group(function () {
     // 📦 Categorías
