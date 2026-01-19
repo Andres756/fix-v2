@@ -369,8 +369,14 @@ export async function downloadFacturaPDF(facturaId: number): Promise<void> {
  * Obtener resumen de facturación
  */
 export async function fetchResumenFacturacion() {
-  const res = await http.get('/facturacion/resumen')
-  return res.data.data
+  try {
+    const res = await http.get('/facturacion/resumen')
+    // ✅ El backend ahora devuelve { message: '...', data: {...} }
+    return res.data.data || res.data
+  } catch (error) {
+    console.error('Error fetching resumen:', error)
+    throw new Error(extractErrorMessage(error))
+  }
 }
 
 // ========== OPCIONES/PARÁMETROS ==========

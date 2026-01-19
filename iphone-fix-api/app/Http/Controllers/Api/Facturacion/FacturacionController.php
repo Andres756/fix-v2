@@ -705,8 +705,8 @@ class FacturacionController extends Controller
      */
     public function resumen()
     {
-        return Cache::remember('facturacion_resumen', 60, function () {
-            try {
+        try {
+            $data = Cache::remember('facturacion_resumen', 60, function () {
                 $hoy = now()->toDateString();
                 $inicioMes = now()->startOfMonth()->toDateString();
                 $finMes = now()->endOfMonth()->toDateString();
@@ -730,24 +730,31 @@ class FacturacionController extends Controller
                     ->whereBetween('fecha_emision', [$inicioMes, $finMes])
                     ->sum('total');
 
-                return response()->json([
-                    'message' => 'Resumen obtenido correctamente',
-                    'data' => [
-                        'ingresos_dia' => $ingresosDia,
-                        'ventas_mes' => $ventasMes,
-                        'facturas_pendientes' => $pendientes,
-                        'pendiente_mes' => $pendienteMes,
-                    ]
-                ]);
-            } catch (\Throwable $e) {
-                return response()->json([
-                    'message' => 'Error al obtener el resumen de facturación',
-                    'error' => $e->getMessage(),
-                    'trace' => config('app.debug') ? $e->getTraceAsString() : null, // opcional: solo muestra trazas en modo debug
-                ], 500);
-            }
-        });
-    }
+                // ✅ Retornar solo los datos, NO la respuesta HTTP
+                return [
+                    'ingresos_dia' => $ingresosDia,
+                    'ventas_mes' => $ventasMes,
+                    'facturas_pendientes' => $pendientes,
+                    'pendiente_mes' => $pendienteMes,
+                ];
+            });
 
+            // ✅ Retornar la respuesta HTTP FUERA del cache
+            return response()->json([
+                'message' => 'Resumen obtenido correctamente',
+                'data' => $data
+            ]);
+
+        } catch (\Throwable $e) {
+            \Log::error('Error en resumen facturación: ' . $e->getMessage());
+            \Log::error($e->getTraceAsString());
+            
+            return response()->json([
+                'message' => 'Error al obtener el resumen de facturación',
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ], 500);
+        }
+    }
 
 }

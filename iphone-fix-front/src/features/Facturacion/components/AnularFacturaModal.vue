@@ -385,34 +385,38 @@ const handleSubmit = async () => {
     return
   }
 
+  if (!props.facturaId || !facturaInfo.value) {
+    toast.error('No se pudo obtener la información de la factura')
+    return
+  }
+
   try {
     isLoading.value = true
 
     // 🧩 Filtrar detalles anulados para que no se incluyan en el payload
     const detallesActivos = selectedDetalles.value.filter(id => {
-      // Filtrar los detalles anulados que no deben enviarse
-      const detalle = factura.value.detalles.find(d => d.id === id)
+      // ✅ USAR facturaInfo en lugar de factura
+      const detalle = facturaInfo.value?.detalles?.find(d => d.id === id)
       return detalle && detalle.estado?.codigo !== 'ANUL'  // Solo los activos
     })
 
-    // Verificar si se seleccionaron detalles válidos
-    if (detallesActivos.length === 0) {
-      toast.warning('Debe seleccionar al menos un ítem no anulado')
-      return
-    }
-
-    const payload = {
+    // 🔹 Si no hay detalles seleccionados, será anulación total
+    const payload: any = {
       motivo: form.motivo,
-      detalles: detallesActivos,  // ✅ Solo los detalles activos seleccionados
-      acciones: {
-        repuestos_internos: 'reutilizables',
-        repuestos_externos: 'mantener',
-        comision: 'mantener_pago'
-      },
       observaciones: form.observaciones || undefined
     }
 
-    const response = await anularFacturaAvanzado(props.facturaId!, payload)
+    // 🔹 Solo agregar detalles si hay selección parcial
+    if (detallesActivos.length > 0 && detallesActivos.length < (facturaInfo.value.detalles?.length || 0)) {
+      payload.detalles = detallesActivos
+      payload.acciones = {
+        repuestos_internos: 'reutilizables',
+        repuestos_externos: 'mantener',
+        comision: 'mantener_pago'
+      }
+    }
+
+    const response = await anularFacturaAvanzado(props.facturaId, payload)
 
     // ✅ Mostrar mensaje y cerrar modal con retraso breve
     toast.success(response?.message || 'Anulación procesada correctamente')

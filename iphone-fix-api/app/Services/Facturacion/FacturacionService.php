@@ -485,7 +485,15 @@ class FacturacionService
     public function listarResumen(array $filters = [])
     {
         $query = Factura::query()
-            ->with(['cliente', 'usuario', 'formaPago', 'estado', 'tipoVenta'])
+            ->with([
+                'cliente', 
+                'usuario', 
+                'formaPago', 
+                'estado', 
+                'tipoVenta',
+                'detalles.estado',  // ✅ Cargar detalles con su estado
+                'pagos'             // ✅ Cargar pagos
+            ])
             ->orderByDesc('fecha_emision');
 
         // 🔍 Filtros dinámicos
@@ -516,33 +524,37 @@ class FacturacionService
             $query->whereDate('fecha_emision', '<=', $filters['hasta']);
         }
 
+        // 🔹 Filtro de prefactura
+        if (isset($filters['es_prefactura'])) {
+            $query->where('es_prefactura', (int)$filters['es_prefactura']);
+        }
+
         // 📊 Paginación
-        $facturas = $query->paginate($filters['per_page'] ?? 15);
+        $perPage = $filters['per_page'] ?? 20;
+        $facturas = $query->paginate($perPage);
 
-        // 🔹 Recalcular totales haciendo NUEVA QUERY (no usar colección)
-        $facturas->setCollection(
-            $facturas->getCollection()->map(function ($factura) {
-                // 🔹 Recalcular total de la factura (solo detalles activos)
-                $totalReal = $factura->detalles()
-                    ->whereHas('estado', fn($q) => $q->where('codigo', '!=', 'ANUL'))
-                    ->sum('total');
+        // 🔹 Recalcular totales usando las relaciones YA CARGADAS (no nuevas queries)
+        $facturas->getCollection()->transform(function ($factura) {
+            // ✅ Usar la colección ya cargada, no hacer nueva query
+            $totalReal = $factura->detalles
+                ->filter(fn($detalle) => $detalle->estado?->codigo !== 'ANUL')
+                ->sum('total');
 
-                // 🔹 Recalcular total pagado
-                $totalPagado = $factura->pagos()
-                    ->where('estado', '!=', 'anulado')
-                    ->sum('valor');
+            // ✅ Usar la colección de pagos ya cargada
+            $totalPagado = $factura->pagos
+                ->filter(fn($pago) => $pago->estado !== 'anulado')
+                ->sum('valor');
 
-                // 🔹 Calcular saldo con el total actualizado
-                $saldoPendiente = max($totalReal - $totalPagado, 0);
+            // 🔹 Calcular saldo con el total actualizado
+            $saldoPendiente = max($totalReal - $totalPagado, 0);
 
-                // 🔹 Sobrescribir valores dinámicos
-                $factura->total = $totalReal;
-                $factura->total_pagado = $totalPagado;
-                $factura->saldo_pendiente = $saldoPendiente;
+            // 🔹 Asignar valores calculados dinámicamente
+            $factura->total = $totalReal;
+            $factura->total_pagado = $totalPagado;
+            $factura->saldo_pendiente = $saldoPendiente;
 
-                return $factura;
-            })
-        );
+            return $factura;
+        });
 
         return $facturas;
     }
