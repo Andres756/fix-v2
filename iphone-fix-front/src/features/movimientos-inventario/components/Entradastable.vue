@@ -1,11 +1,23 @@
 <template>
   <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-    <!-- Header con botón Nueva Entrada -->
-    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-      <div>
-        <h2 class="text-lg font-semibold text-gray-900">Entradas de Inventario</h2>
-        <p class="text-sm text-gray-500 mt-1">Gestiona las entradas de productos al inventario</p>
-      </div>
+  <!-- Header con botón Nueva Entrada -->
+  <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+    <div>
+      <h2 class="text-lg font-semibold text-gray-900">Entradas de Inventario</h2>
+      <p class="text-sm text-gray-500 mt-1">Gestiona las entradas de productos al inventario</p>
+    </div>
+    <div class="flex gap-2">
+      <!-- NUEVO: Botón Crear Cliente -->
+      <button
+        @click="modalCrearCliente = true"
+        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+        </svg>
+        Nuevo Cliente
+      </button>
+      
       <button
         @click="emit('nueva-entrada')"
         class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
@@ -16,6 +28,7 @@
         Nueva Entrada
       </button>
     </div>
+  </div>
 
     <!-- Barra de Búsqueda -->
     <div class="px-6 py-4 border-b border-gray-200">
@@ -362,6 +375,13 @@
     @close="cerrarModalCambiarEstado"
     @success="handleEstadoCambiado"
   />
+
+  <!-- Modal Crear Cliente -->
+  <ClienteModal
+    :open="modalCrearCliente"
+    @close="modalCrearCliente = false"
+    @created="handleClienteCreado"
+  />
 </template>
 
 <script setup lang="ts">
@@ -373,6 +393,8 @@ import type { EntradaInventario, EstadoEntrada } from '../../inventario/types/in
 import type { Paginated } from '../../../shared/types/pagination'
 import CostosAdicionalesModal from './CostosAdicionalesModal.vue'
 import CambiarEstadoModal from './CambiarEstadoModal.vue'
+import ClienteModal from '../../OrdenServicio/components/ClienteModal.vue'
+import type { Cliente } from '../../OrdenServicio/types/cliente'
 
 // Emits
 const emit = defineEmits<{
@@ -386,6 +408,16 @@ const entradas = ref<EntradaInventario[]>([])
 const pagination = ref<Paginated<EntradaInventario>['pagination'] | null>(null)
 const estadosEntrada = ref<EstadoEntrada[]>([])
 const detallesAbiertos = ref(new Set<number>())
+
+// Modal Crear Cliente
+const modalCrearCliente = ref(false)
+
+const handleClienteCreado = (cliente: Cliente) => {
+  toast.success(`Cliente "${cliente.nombre}" creado exitosamente`)
+  modalCrearCliente.value = false
+  // Opcionalmente recargar la lista de entradas
+  cargarEntradas()
+}
 
 const filtros = ref({
   estado_entrada_id: null as number | null,

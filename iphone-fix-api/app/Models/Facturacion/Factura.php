@@ -21,6 +21,7 @@ class Factura extends Model
     protected $fillable = [
         'codigo',
         'cliente_id',
+        'proveedor_id',
         'usuario_id',
         'tipo_venta_id',
         'forma_pago_id',
@@ -58,6 +59,12 @@ class Factura extends Model
         return $this->belongsTo(Cliente::class, 'cliente_id');
     }
 
+    public function proveedor()
+    {
+        return $this->belongsTo(\App\Models\Inventario\Proveedor::class, 'proveedor_id');
+    }
+    
+
     public function usuario()
     {
         return $this->belongsTo(User::class, 'usuario_id');
@@ -70,7 +77,7 @@ class Factura extends Model
 
     public function tipoVenta()
     {
-        return $this->belongsTo(TipoVenta::class, 'tipo_venta_id');
+        return $this->belongsTo(\App\Models\Parametros\TipoVenta::class, 'tipo_venta_id');
     }
 
     public function estado()

@@ -31,11 +31,21 @@ export interface TipoVenta {
 }
 
 // ========== Factura Principal ==========
+export interface Proveedor {  // NUEVO
+  id: number
+  nombre: string
+  nit?: string
+  telefono?: string
+  correo?: string
+}
+
 export interface Factura {
   id: number
   codigo: string
   cliente_id: number
   cliente?: Cliente
+  proveedor_id?: number  // NUEVO
+  proveedor?: Proveedor  // NUEVO
   usuario_id: number
   usuario?: {
     id: number
@@ -182,7 +192,9 @@ export interface AnulacionFactura {
 // ========== Payloads para crear/actualizar ==========
 export interface CreateFacturaVentaPayload {
   origen: 'venta'
-  cliente_id: number
+  destinatario_tipo?: 'cliente' | 'proveedor'  // NUEVO
+  cliente_id?: number  // Ahora opcional
+  proveedor_id?: number  // NUEVO
   forma_pago_id?: number
   observaciones?: string
   monto_recibido?: number
@@ -193,6 +205,8 @@ export interface CreateFacturaVentaPayload {
     cantidad: number
     tipo_precio?: 'DET' | 'MAY'
     descuento?: number
+    precio_unitario?: number  // NUEVO
+    entregado?: boolean
   }>
   
   pagos?: Array<{

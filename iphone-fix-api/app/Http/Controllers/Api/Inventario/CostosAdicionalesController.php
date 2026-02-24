@@ -293,6 +293,8 @@ class CostosAdicionalesController extends Controller
             'costo_unitario' => 'required|numeric|min:0',
             'proveedor_id' => 'nullable|exists:proveedores,id',
             'observaciones' => 'nullable|string|max:1000',
+            'a_credito' => 'nullable|boolean',
+            'metodo_pago_id' => 'nullable|exists:formas_pago,id',
         ]);
 
         if ($validator->fails()) {
@@ -304,7 +306,7 @@ class CostosAdicionalesController extends Controller
 
         DB::beginTransaction();
         try {
-            // Verificar que la entrada existe y es tipo cliente
+            // Verificar entrada
             $entrada = DB::table('entradas_producto')->where('id', $entradaId)->first();
             
             if (!$entrada) {
@@ -319,9 +321,10 @@ class CostosAdicionalesController extends Controller
                 ], 422);
             }
 
-            $costoTotal = $request->costo_unitario * $request->cantidad;
+            $costoTotal = $request->cantidad * $request->costo_unitario;
+            $aCredito = $request->a_credito ?? false;
 
-            // Crear registro
+            // Crear registro de costo
             $costoId = DB::table('entradas_costos_repuestos_externos')->insertGetId([
                 'entrada_id' => $entradaId,
                 'proveedor_id' => $request->proveedor_id,
@@ -330,6 +333,8 @@ class CostosAdicionalesController extends Controller
                 'costo_unitario' => $request->costo_unitario,
                 'costo_total' => $costoTotal,
                 'observaciones' => $request->observaciones,
+                'a_credito' => $aCredito,
+                'metodo_pago_id' => $request->metodo_pago_id,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -344,8 +349,10 @@ class CostosAdicionalesController extends Controller
                 ->select([
                     'ecre.*',
                     'p.nombre as proveedor_nombre',
+                    'fp.nombre as metodo_pago_nombre',
                 ])
                 ->leftJoin('proveedores as p', 'ecre.proveedor_id', '=', 'p.id')
+                ->leftJoin('formas_pago as fp', 'ecre.metodo_pago_id', '=', 'fp.id')
                 ->where('ecre.id', $costoId)
                 ->first();
 

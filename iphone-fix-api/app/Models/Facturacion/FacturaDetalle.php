@@ -43,9 +43,16 @@ class FacturaDetalle extends Model
         return $this->belongsTo(Factura::class, 'factura_id');
     }
 
-        public function estado()
+    public function inventario()
+    {
+        return $this->belongsTo(\App\Models\Inventario\Inventario::class, 'inventario_id');
+    }
+
+    public function estado()
     {
         // Relación al catálogo de estados (estados_factura)
         return $this->belongsTo(EstadoFactura::class, 'estado_id');
     }
+
+    
 }

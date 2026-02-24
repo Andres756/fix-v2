@@ -16,6 +16,7 @@ use App\Services\Facturacion\AnulacionFacturaService;
 use Illuminate\Support\Facades\Response;
 use PDF; // usa barryvdh/laravel-dompdf
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class FacturacionController extends Controller
 {
@@ -36,64 +37,91 @@ class FacturacionController extends Controller
         return response()->json($facturas);
     }
     /**
-     * 🧾 Crear nueva factura (venta directa, servicio o plan separe)
-     * Endpoint principal POST /api/facturacion/facturas
+     * Crear nueva factura (venta o servicio)
+     * POST /api/facturacion/facturas
      */
     public function store(Request $request)
     {
-        $request->validate([
-            'origen' => 'required|string|in:venta,servicio,plan_separe',
-            'cliente_id' => 'required|integer|exists:clientes,id',
-            'forma_pago_id' => 'nullable|integer|exists:formas_pago,id',
-            'observaciones' => 'nullable|string|max:255',
-            'monto_recibido' => 'nullable|numeric|min:0',
-
-            // Ítems (solo si origen = venta)
-            'items' => 'required_if:origen,venta|array|min:1',
-            'items.*.inventario_id' => 'required_if:origen,venta|integer|exists:inventarios,id',
-            'items.*.cantidad' => 'required_if:origen,venta|numeric|min:1',
-            'items.*.tipo_precio' => 'nullable|string|in:DET,MAY',
-
-            // Orden de servicio (solo si origen = servicio)
-            'orden_servicio_id' => 'required_if:origen,servicio|integer|exists:ordenes_servicio,id',
-
-            // Control de entrega
-            'entregado' => 'nullable|boolean',
-
-            // Pagos
-            'pagos' => 'nullable|array',
-            'pagos.*.forma_pago_id' => 'required_with:pagos|integer|exists:formas_pago,id',
-            'pagos.*.valor' => 'required_with:pagos|numeric|min:0.01',
-        ]);
-
+        Log::info('📥 Request recibido:', $request->all());
+        
         try {
-            $usuarioId = Auth::id() ?? $request->input('usuario_id');
-            if (!$usuarioId) {
-                throw ValidationException::withMessages([
-                    'usuario' => 'No se pudo identificar el usuario que realiza la operación.'
-                ]);
+            $validated = $request->validate([
+                'origen' => 'required|in:venta,servicio',
+                'destinatario_tipo' => 'nullable|in:cliente,proveedor',
+                'cliente_id' => 'nullable|exists:clientes,id',
+                'proveedor_id' => 'nullable|exists:proveedores,id',
+                'forma_pago_id' => 'nullable|exists:formas_pago,id',
+                'observaciones' => 'nullable|string|max:500',
+                'entregado' => 'nullable|boolean',
+                'monto_recibido' => 'nullable|numeric|min:0',
+                
+                // Para venta directa
+                'items' => 'required_if:origen,venta|array|min:1',
+                'items.*.inventario_id' => 'required|exists:inventarios,id',
+                'items.*.cantidad' => 'required|integer|min:1',
+                'items.*.tipo_precio' => 'nullable|in:DET,MAY',
+                'items.*.precio_unitario' => 'nullable|numeric|min:0',
+                'items.*.descuento' => 'nullable|numeric|min:0',
+                'items.*.entregado' => 'nullable|boolean',
+                
+                // Para servicio
+                'orden_servicio_id' => 'required_if:origen,servicio|exists:ordenes_servicio,id',
+                'equipos_seleccionados' => 'nullable|array',
+                'equipos_seleccionados.*' => 'exists:equipos_orden_servicio,id',
+                
+                // Pagos múltiples
+                'pagos' => 'nullable|array',
+                'pagos.*.forma_pago_id' => 'required|exists:formas_pago,id',
+                'pagos.*.valor' => 'required|numeric|min:0',
+                'pagos.*.referencia_externa' => 'nullable|string|max:100',
+            ]);
+            
+            Log::info('✅ Validación exitosa:', $validated);
+
+            // Validar destinatario según tipo
+            $destinatarioTipo = $validated['destinatario_tipo'] ?? 'cliente';
+            
+            if ($validated['origen'] === 'venta') {
+                if ($destinatarioTipo === 'cliente' && empty($validated['cliente_id'])) {
+                    Log::error('❌ Falta cliente_id');
+                    return response()->json([
+                        'message' => 'Debe proporcionar un cliente para la venta'
+                    ], 422);
+                }
+                
+                if ($destinatarioTipo === 'proveedor' && empty($validated['proveedor_id'])) {
+                    Log::error('❌ Falta proveedor_id');
+                    return response()->json([
+                        'message' => 'Debe proporcionar un proveedor para la venta'
+                    ], 422);
+                }
             }
 
-            $origen = $request->input('origen');
-            $entregado = $request->boolean('entregado', true);
+            Log::info('🚀 Llamando a FacturacionService...', [
+                'origen' => $validated['origen'],
+                'destinatario_tipo' => $destinatarioTipo
+            ]);
 
-            if ($origen === 'venta') {
-                $resultado = $this->facturacionService->crearFacturaVenta($request->all(), $usuarioId);
-            } elseif ($origen === 'servicio') {
-                $resultado = $this->facturacionService->crearFacturaServicio(
-                    (int)$request->input('orden_servicio_id'),
-                    null,
-                    $request->input('forma_pago_id'),
-                    $usuarioId,
-                    $request->input('observaciones'),
-                    null,
-                    $entregado
+            // Crear factura según origen
+            if ($validated['origen'] === 'venta') {
+                $resultado = $this->facturacionService->crearFacturaVenta(
+                    $validated,
+                    Auth::id()
                 );
-            } elseif ($origen === 'plan_separe') {
-                throw ValidationException::withMessages([
-                    'origen' => 'Las facturas de plan separe se crean automáticamente al cierre del plan.'
-                ]);
+            } else {
+                // Facturar servicio
+                $resultado = $this->facturacionService->crearFacturaServicio(
+                    $validated['orden_servicio_id'],
+                    $validated['cliente_id'] ?? null,
+                    $validated['forma_pago_id'] ?? null,
+                    Auth::id(),
+                    $validated['observaciones'] ?? null,
+                    $validated['equipos_seleccionados'] ?? null,
+                    $validated['entregado'] ?? true
+                );
             }
+
+            Log::info('✅ Factura creada exitosamente');
 
             $factura = $resultado instanceof \Illuminate\Database\Eloquent\Model
                 ? $resultado
@@ -105,10 +133,29 @@ class FacturacionController extends Controller
                 'vueltas' => $resultado['vueltas'] ?? 0,
             ], 201);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('❌ ERROR DE VALIDACIÓN:', [
+                'errors' => $e->errors()
+            ]);
+            
+            return response()->json([
+                'message' => 'Error de validación',
+                'errors' => $e->errors()
+            ], 422);
+            
         } catch (\Throwable $e) {
+            Log::error('❌ ERROR EN STORE:', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'message' => 'Error al crear la factura',
                 'error' => $e->getMessage(),
+                'file' => basename($e->getFile()),
+                'line' => $e->getLine(),
             ], 500);
         }
     }

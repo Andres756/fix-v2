@@ -79,6 +79,8 @@ export interface CreateRepuestoExternoPayload {
   costo_unitario: number
   proveedor_id?: number
   observaciones?: string
+  a_credito?: boolean  // NUEVO
+  metodo_pago_id?: number  // NUEVO
 }
 
 export interface CreatePagoTecnicoPayload {

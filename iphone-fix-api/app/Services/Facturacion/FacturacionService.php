@@ -37,23 +37,40 @@ class FacturacionService
 
     /**
      * Crear factura de venta directa o mayorista
+     * Ahora soporta ventas a clientes Y proveedores
      */
     public function crearFacturaVenta(array $payload, int $usuarioId)
     {
         DB::beginTransaction();
 
         try {
-            // ⚙️ Determinar si la venta fue entregada al cliente globalmente
-            $estadoPend = \App\Models\Facturacion\EstadoFactura::where('codigo', 'PEND')->firstOrFail();
+            // Validar que venga cliente_id O proveedor_id
+            $destinatarioTipo = $payload['destinatario_tipo'] ?? 'cliente';
+            
+            if ($destinatarioTipo === 'cliente' && empty($payload['cliente_id'])) {
+                throw ValidationException::withMessages([
+                    'cliente_id' => 'Debe proporcionar un cliente para la venta'
+                ]);
+            }
+            
+            if ($destinatarioTipo === 'proveedor' && empty($payload['proveedor_id'])) {
+                throw ValidationException::withMessages([
+                    'proveedor_id' => 'Debe proporcionar un proveedor para la venta'
+                ]);
+            }
+
+            // ⚙️ Determinar estado inicial
+            $estadoPend = EstadoFactura::where('codigo', 'PEND')->firstOrFail();
 
             // 🧾 Crear factura base
             $factura = Factura::create([
                 'codigo'         => null,
-                'cliente_id'     => $payload['cliente_id'],
+                'cliente_id'     => $destinatarioTipo === 'cliente' ? $payload['cliente_id'] : null,
+                'proveedor_id'   => $destinatarioTipo === 'proveedor' ? $payload['proveedor_id'] : null,
                 'usuario_id'     => $usuarioId,
                 'tipo_venta_id'  => TipoVenta::where('codigo', 'DET')->value('id'),
                 'forma_pago_id'  => $payload['forma_pago_id'] ?? null,
-                'estado_id'      => EstadoFactura::where('codigo', 'PEND')->value('id'),
+                'estado_id'      => $estadoPend->id,
                 'subtotal'       => 0,
                 'impuestos'      => 0,
                 'descuentos'     => 0,
@@ -61,7 +78,6 @@ class FacturacionService
                 'fecha_emision'  => now(),
                 'prefijo'        => null,
                 'consecutivo'    => null,
-                'estado_id'      => $estadoPend->id,
             ]);
 
             $subtotal = 0;
@@ -77,83 +93,76 @@ class FacturacionService
                 $valorUnitario = isset($it['precio_unitario']) && is_numeric($it['precio_unitario'])
                     ? (float) $it['precio_unitario']
                     : (($tipoPrecio === 'MAY')
-                        ? (float) ($inventario->precio_mayor ?? $inventario->precio)
-                        : (float) $inventario->precio);
+                        ? (float) ($inventario->precio_mayor ?? $inventario->precio_venta ?? 0)
+                        : (float) ($inventario->precio_venta ?? 0));
 
                 $cantidad = (int) $it['cantidad'];
-                $totalItem = $cantidad * $valorUnitario;
+                $desc = (float) ($it['descuento'] ?? 0);
+                $totalLinea = ($valorUnitario * $cantidad) - $desc;
 
-                // 🧾 Crear el detalle de factura con el campo entregado para cada ítem
+                // Crear detalle
                 FacturaDetalle::create([
                     'factura_id'     => $factura->id,
-                    'tipo_item'      => 'producto',
-                    'referencia_id'  => $inventario->id,
-                    'tipo_precio'    => $tipoPrecio,
-                    'descripcion'    => $it['descripcion'] ?? $inventario->nombre,
+                    'inventario_id'  => $inventario->id,
+                    'descripcion'    => $inventario->nombre,
                     'cantidad'       => $cantidad,
-                    'valor_unitario' => $valorUnitario,
-                    'descuento'      => 0,
+                    'precio_unitario'=> $valorUnitario,
+                    'descuento'      => $desc,
                     'impuesto'       => 0,
-                    'total'          => $totalItem,
-                    'entregado'      => isset($it['entregado']) ? (bool)$it['entregado'] : false,  // Campo entregado por producto
+                    'total'          => $totalLinea,
+                    'tipo'           => self::TIPO_ITEM_PRODUCTO,
+                    'referencia_id'  => $inventario->id,  // ✅ AGREGAR ESTO
+                    'entregado'      => $it['entregado'] ?? false,
                 ]);
 
-                $subtotal += $totalItem;
-            }
-
-            // 🧮 Totales generales
-            $factura->update([
-                'subtotal'  => $subtotal,
-                'impuestos' => $impuestos,
-                'descuentos'=> $descuentos,
-                'total'     => $subtotal + $impuestos - $descuentos,
-            ]);
-
-            // 🔢 Recargar y validar código generado por trigger
-            $factura->refresh();
-
-            if (empty($factura->codigo)) {
-                $codigo = sprintf('FAC-%s-%05d', date('Y'), $factura->id);
-                $factura->update([
-                    'codigo'      => $codigo,
-                    'prefijo'     => 'FAC',
-                    'consecutivo' => $factura->id,
-                ]);
-            }
-
-            // 💰 Pagos (multi medio)
-            $totalPagado = 0;
-            if (!empty($payload['pagos']) && is_array($payload['pagos'])) {
-                foreach ($payload['pagos'] as $pago) {
-                    PagoFactura::create([
-                        'factura_id'        => $factura->id,
-                        'forma_pago_id'     => $pago['forma_pago_id'],
-                        'valor'             => $pago['valor'],
-                        'referencia_externa'=> $pago['referencia_externa'] ?? null,
-                        'observaciones'     => $pago['observaciones'] ?? null,
-                        'usuario_id'        => $usuarioId,
+                // Descontar inventario
+                if ($inventario->stock < $cantidad) {
+                    DB::rollBack();
+                    throw ValidationException::withMessages([
+                        'stock' => "No hay suficiente stock para {$inventario->nombre}. Disponible: {$inventario->stock}"
                     ]);
-
-                    $totalPagado += $pago['valor'];
                 }
+
+                $inventario->stock -= $cantidad;
+                $inventario->save();
+
+                $subtotal += $totalLinea;
             }
 
-            // 💵 Calcular vueltas según monto recibido
-            $vueltas = 0;
-            if (!empty($payload['monto_recibido'])) {
-                $montoRecibido = (float)$payload['monto_recibido'];
-                $totalPagado = collect($payload['pagos'] ?? [])->sum('valor');
-                $vueltas = max(0, $montoRecibido - $totalPagado);
-            }
+            // Actualizar totales en factura
+            $factura->subtotal = $subtotal;
+            $factura->impuestos = $impuestos;
+            $factura->descuentos = $descuentos;
+            $factura->total = $subtotal + $impuestos - $descuentos;
+            $factura->save();
+
+            // Generar código
+            $factura->codigo = 'FAC-' . str_pad($factura->id, 6, '0', STR_PAD_LEFT);
+            $factura->save();
+
+            // Auditoría
+            FacturaAuditoria::create([
+                'factura_id' => $factura->id,
+                'usuario_id' => $usuarioId,
+                'accion'     => 'EDITAR',  // ✅ Usar un valor que exista en el ENUM
+                'detalle'    => $destinatarioTipo === 'cliente' 
+                    ? "Factura creada para cliente ID {$payload['cliente_id']}"
+                    : "Factura creada para proveedor ID {$payload['proveedor_id']}",
+                'created_at' => now(),
+            ]);
 
             DB::commit();
 
-            return [
-                'factura' => $factura->load(['detalles', 'cliente', 'usuario', 'estado', 'formaPago', 'pagos']),
-                'vueltas' => $vueltas,
-            ];
+            // Recargar con relaciones
+            return $factura->fresh([
+                'cliente',
+                'proveedor',
+                'detalles.inventario',
+                'estado',
+                'tipoVenta'
+            ]);
 
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
         }

@@ -77,10 +77,35 @@
             <!-- Formulario de Venta Directa -->
             <form v-if="tipoFactura === 'venta'" @submit.prevent="handleSubmitVenta" class="p-6">
               <div class="space-y-6">
-                <!-- Cliente buscable -->
+                
+                <!-- NUEVO: Selector de tipo de destinatario -->
+                <div class="flex gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      v-model="tipoDestinatario"
+                      value="cliente"
+                      @change="searchDestinatario = ''; destinatarioSeleccionado = null"
+                      class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                    />
+                    <span class="text-sm font-medium text-gray-700">Venta a Cliente</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      v-model="tipoDestinatario"
+                      value="proveedor"
+                      @change="searchDestinatario = ''; destinatarioSeleccionado = null"
+                      class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                    />
+                    <span class="text-sm font-medium text-gray-700">Venta a Proveedor</span>
+                  </label>
+                </div>
+
+                <!-- Destinatario (cliente o proveedor) buscable -->
                 <div class="space-y-2">
                   <label class="block text-sm font-semibold text-gray-700">
-                    Cliente *
+                    {{ tipoDestinatario === 'cliente' ? 'Cliente' : 'Proveedor' }} *
                   </label>
                   <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -94,30 +119,59 @@
                       </svg>
                     </div>
                     <input
-                      v-model="searchCliente"
-                      @input="buscarClientes"
+                      v-model="searchDestinatario"
+                      @input="buscarDestinatarios"
                       required
                       type="text"
-                      placeholder="Buscar por documento o apellido..."
+                      :placeholder="`Buscar ${tipoDestinatario} por ${tipoDestinatario === 'cliente' ? 'documento' : 'NIT'} o nombre...`"
                       class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     />
 
                     <!-- Resultados -->
                     <ul
-                      v-if="clientesFiltrados.length > 0 && searchCliente"
+                      v-if="destinatariosFiltrados.length > 0 && searchDestinatario"
                       class="absolute bg-white border border-gray-200 rounded-lg mt-1 w-full max-h-40 overflow-y-auto shadow-lg z-10"
                     >
                       <li
-                        v-for="c in clientesFiltrados"
-                        :key="c.id"
-                        @click="seleccionarCliente(c)"
+                        v-for="dest in destinatariosFiltrados"
+                        :key="dest.id"
+                        @click="seleccionarDestinatario(dest)"
                         class="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
                       >
-                        <div class="font-medium text-gray-900">{{ c.nombre }}</div>
-                        <div class="text-sm text-gray-500">{{ c.documento }}</div>
-                        <div v-if="c.telefono" class="text-xs text-gray-400">{{ c.telefono }}</div>
+                        <div class="font-medium text-gray-900">{{ dest.nombre }}</div>
+                        <div class="text-sm text-gray-500">
+                          {{ tipoDestinatario === 'cliente' ? dest.documento : (dest.nit || 'Sin NIT') }}
+                        </div>
+                        <div v-if="dest.telefono" class="text-xs text-gray-400">{{ dest.telefono }}</div>
                       </li>
                     </ul>
+                  </div>
+
+                  <!-- Chip destinatario seleccionado -->
+                  <div v-if="destinatarioSeleccionado" class="mt-2 p-3 bg-blue-50 border-2 border-blue-200 rounded-lg flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <div class="font-semibold text-blue-900">{{ destinatarioSeleccionado.nombre }}</div>
+                        <div class="text-sm text-blue-700">
+                          {{ tipoDestinatario === 'cliente' ? destinatarioSeleccionado.documento : (destinatarioSeleccionado.nit || 'Sin NIT') }}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      @click="destinatarioSeleccionado = null; searchDestinatario = ''"
+                      class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Cambiar destinatario"
+                    >
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                      </svg>
+                    </button>
                   </div>
                 </div>
 
@@ -205,7 +259,7 @@
                           <th class="px-4 py-2 text-center">Cant.</th>
                           <th class="px-4 py-2 text-center">Precio</th>
                           <th class="px-4 py-2 text-center">Subtotal</th>
-                          <th class="px-4 py-2 text-center">Entregado</th> <!-- Nueva columna para "Entregado" -->
+                          <th class="px-4 py-2 text-center">Entregado</th>
                           <th class="px-4 py-2 text-center">Acciones</th>
                         </tr>
                       </thead>
@@ -545,6 +599,8 @@ import {
 } from '../api/facturacion'
 import { fetchClientes } from '../../OrdenServicio/api/clientes'
 import { fetchInventario } from '../../inventario/api/inventario'
+import { fetchProveedores } from '../../OrdenServicio/api/proveedores'
+const tipoDestinatario = ref<'cliente' | 'proveedor'>('cliente')
 
 // =================== PROPS & EMITS ===================
 interface Props {
@@ -566,9 +622,9 @@ const tipoFactura = ref<'venta' | 'servicio'>('venta')
 const formasPago = ref<any[]>([])
 
 // =================== VENTA DIRECTA ===================
-const searchCliente = ref('')
-const clientesFiltrados = ref<any[]>([])
-const selectedClienteId = ref<number | ''>('')
+const searchDestinatario = ref('')
+const destinatariosFiltrados = ref<any[]>([])
+const destinatarioSeleccionado = ref<any | null>(null)
 
 const searchProducto = ref('')
 const productosFiltrados = ref<any[]>([])
@@ -577,7 +633,9 @@ const cantidadTemp = ref(1)
 const tipoPrecioTemp = ref<'DET' | 'MAY'>('DET')
 
 const ventaForm = reactive({
+  destinatario_tipo: 'cliente' as 'cliente' | 'proveedor',  // NUEVO
   cliente_id: '',
+  proveedor_id: '',  // NUEVO
   forma_pago_id: '',
   observaciones: '',
   entregado: false,
@@ -602,38 +660,44 @@ const servicioForm = ref({
 })
 
 // =================== FUNCIONES VENTA DIRECTA ===================
-async function buscarClientes() {
-  if (searchCliente.value.length < 2) {
-    clientesFiltrados.value = []
+async function buscarDestinatarios() {
+  if (searchDestinatario.value.length < 2) {
+    destinatariosFiltrados.value = []
     return
   }
+  
   try {
-    const res = await fetchClientes({ q: searchCliente.value, per_page: 5 })
-    clientesFiltrados.value = res.data
+    if (tipoDestinatario.value === 'cliente') {
+      const res = await fetchClientes({ q: searchDestinatario.value, per_page: 5 })
+      destinatariosFiltrados.value = res.data
+    } else {
+      const res = await fetchProveedores({ q: searchDestinatario.value, per_page: 1000 })
+      destinatariosFiltrados.value = (res.data || res).filter((p: any) => 
+        p.nombre?.toLowerCase().includes(searchDestinatario.value.toLowerCase()) ||
+        p.nit?.toLowerCase().includes(searchDestinatario.value.toLowerCase())
+      ).slice(0, 5)
+    }
   } catch (error) {
-    console.error('Error buscando clientes:', error)
-    clientesFiltrados.value = []
+    console.error('Error buscando destinatarios:', error)
+    destinatariosFiltrados.value = []
   }
 }
 
-function seleccionarCliente(cliente: any) {
-  selectedClienteId.value = cliente.id
-  searchCliente.value = `${cliente.nombre} - ${cliente.documento}`
-  clientesFiltrados.value = []
-  ventaForm.cliente_id = cliente.id
-}
-
-async function buscarProductos() {
-  if (searchProducto.value.length < 2) {
-    productosFiltrados.value = []
-    return
+function seleccionarDestinatario(destinatario: any) {
+  destinatarioSeleccionado.value = destinatario
+  searchDestinatario.value = tipoDestinatario.value === 'cliente' 
+    ? `${destinatario.nombre} - ${destinatario.documento}`
+    : `${destinatario.nombre} - ${destinatario.nit || 'Sin NIT'}`
+  destinatariosFiltrados.value = []
+  
+  if (tipoDestinatario.value === 'cliente') {
+    ventaForm.cliente_id = destinatario.id
+    ventaForm.proveedor_id = ''
+  } else {
+    ventaForm.proveedor_id = destinatario.id
+    ventaForm.cliente_id = ''
   }
-  try {
-    const res = await fetchInventario({ q: searchProducto.value, per_page: 5 })
-    productosFiltrados.value = res.data || []
-  } catch {
-    productosFiltrados.value = []
-  }
+  ventaForm.destinatario_tipo = tipoDestinatario.value
 }
 
 function seleccionarProducto(producto: any) {
@@ -799,11 +863,11 @@ const totalFactura = computed(() => {
 async function handleSubmitVenta() {
   if (isSaving.value) return
 
-  if (!selectedClienteId.value) {
-    toast.warning('Debe seleccionar un cliente')
+  // Validar que haya destinatario seleccionado
+  if (!destinatarioSeleccionado.value) {
+    toast.warning(`Debe seleccionar un ${tipoDestinatario.value}`)
     return
   }
-  ventaForm.cliente_id = selectedClienteId.value.toString()
 
   const itemsValidos = ventaForm.items.filter(i => i.inventario_id && i.cantidad > 0)
   if (itemsValidos.length === 0) {
@@ -816,16 +880,18 @@ async function handleSubmitVenta() {
 
     const payload = {
       origen: 'venta' as const,
-      cliente_id: Number(ventaForm.cliente_id),
+      destinatario_tipo: tipoDestinatario.value,  // NUEVO
+      cliente_id: tipoDestinatario.value === 'cliente' ? Number(ventaForm.cliente_id) : undefined,
+      proveedor_id: tipoDestinatario.value === 'proveedor' ? Number(ventaForm.proveedor_id) : undefined,
       forma_pago_id: ventaForm.forma_pago_id ? Number(ventaForm.forma_pago_id) : undefined,
       observaciones: ventaForm.observaciones || undefined,
-      entregado: ventaForm.entregado,  // Campo entregado global para la factura
+      entregado: ventaForm.entregado,
       items: itemsValidos.map(item => ({
         inventario_id: Number(item.inventario_id),
         cantidad: Number(item.cantidad),
-        tipo_precio: item.tipo_precio,  // 'DET' | 'MAY'
+        tipo_precio: item.tipo_precio,
         precio_unitario: Number(item.precio ?? item.precio_unitario ?? 0),
-        entregado: item.entregado,  // Campo entregado para cada ítem individual
+        entregado: item.entregado,
       })),
     }
 
@@ -841,6 +907,19 @@ async function handleSubmitVenta() {
     toast.error(error?.response?.data?.message || error.message || 'Error al crear la factura')
   } finally {
     isSaving.value = false
+  }
+}
+
+async function buscarProductos() {
+  if (searchProducto.value.length < 2) {
+    productosFiltrados.value = []
+    return
+  }
+  try {
+    const res = await fetchInventario({ q: searchProducto.value, per_page: 5 })
+    productosFiltrados.value = res.data || []
+  } catch {
+    productosFiltrados.value = []
   }
 }
 
@@ -897,16 +976,19 @@ async function handleSubmitServicio() {
 // =================== RESETEAR FORMULARIOS ===================
 function resetearFormularios() {
   // Reset venta directa
-  searchCliente.value = ''
-  clientesFiltrados.value = []
-  selectedClienteId.value = ''
+  tipoDestinatario.value = 'cliente'
+  searchDestinatario.value = ''
+  destinatariosFiltrados.value = []
+  destinatarioSeleccionado.value = null
   searchProducto.value = ''
   productosFiltrados.value = []
   productoSeleccionado.value = null
   cantidadTemp.value = 1
   tipoPrecioTemp.value = 'DET'
   
+  ventaForm.destinatario_tipo = 'cliente'
   ventaForm.cliente_id = ''
+  ventaForm.proveedor_id = ''
   ventaForm.forma_pago_id = ''
   ventaForm.observaciones = ''
   ventaForm.entregado = true
