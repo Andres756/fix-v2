@@ -285,7 +285,7 @@ class FacturacionService
         ]);
 
         // Auditoría
-        \App\Models\Facturacion\FacturaAuditoria::create([
+        FacturaAuditoria::create([
             'factura_id' => $factura->id,
             'usuario_id' => $usuarioId,
             'accion'     => 'EDITAR',
