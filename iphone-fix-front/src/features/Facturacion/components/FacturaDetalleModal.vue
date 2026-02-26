@@ -78,8 +78,9 @@
                   <thead class="bg-gray-100 text-gray-600">
                     <tr>
                       <th class="text-left px-4 py-2">Descripción</th>
-                      <th class="text-center px-4 py-2">Cantidad</th>
-                      <th class="text-right px-4 py-2">Valor unitario</th>
+                      <th class="text-center px-4 py-2">Cant.</th>
+                      <th class="text-right px-4 py-2">Precio Unit.</th>
+                      <th class="text-right px-4 py-2">Descuento</th>
                       <th class="text-right px-4 py-2">Total</th>
                       <th class="text-center px-4 py-2">Entregado</th>
                     </tr>
@@ -98,7 +99,16 @@
                         </span>
                       </td>
                       <td class="px-4 py-2 text-center">{{ d.cantidad }}</td>
-                      <td class="px-4 py-2 text-right">{{ formatMoney(d.valor_unitario) }}</td>
+                      <td class="px-4 py-2 text-right">{{ formatMoney(d.valor_unitario || d.precio_unitario || 0) }}</td>
+                      
+                      <!-- ✅ NUEVA COLUMNA: Descuento -->
+                      <td class="px-4 py-2 text-right">
+                        <span v-if="d.descuento > 0" class="text-red-600">
+                          - {{ formatMoney(d.descuento) }}
+                        </span>
+                        <span v-else class="text-gray-400">—</span>
+                      </td>
+                      
                       <td class="px-4 py-2 text-right font-semibold">{{ formatMoney(d.total) }}</td>
 
                       <td class="px-4 py-2 text-center">
@@ -149,17 +159,46 @@
               </div>
             </div>
 
-            <div class="flex justify-end mt-2 text-sm text-gray-700">
-              <div class="w-1/3">
-                <div class="flex justify-between">
+            <!-- ✅ TOTALES DESGLOSADOS -->
+            <div class="flex justify-end mt-4">
+              <div class="w-2/5 space-y-2 text-sm">
+                <!-- Subtotal sin descuentos -->
+                <div class="flex justify-between text-gray-700">
                   <span>Subtotal:</span>
                   <span>{{ formatMoney(factura.subtotal) }}</span>
                 </div>
-                <div v-if="factura.descuentos > 0" class="flex justify-between">
-                  <span>Descuento:</span>
-                  <span>-{{ formatMoney(factura.descuentos) }}</span>
+                
+                <!-- Descuentos por ítem (suma de todos los detalles) -->
+                <div 
+                  v-if="factura.detalles?.some((d: any) => d.descuento > 0)" 
+                  class="flex justify-between text-red-600"
+                >
+                  <span>Descuentos por ítem:</span>
+                  <span>
+                    - {{ formatMoney(factura.detalles.reduce((sum: number, d: any) => sum + (d.descuento || 0), 0)) }}
+                  </span>
                 </div>
-                <div class="flex justify-between font-semibold">
+                
+                <!-- Descuento global (descuento total - descuentos por ítem) -->
+                <div 
+                  v-if="(() => {
+                    const descuentosItems = factura.detalles?.reduce((sum: number, d: any) => sum + (d.descuento || 0), 0) || 0
+                    const descuentoGlobal = (factura.descuentos || 0) - descuentosItems
+                    return descuentoGlobal > 0
+                  })()" 
+                  class="flex justify-between text-red-600"
+                >
+                  <span>Descuento global:</span>
+                  <span>
+                    - {{ formatMoney((() => {
+                      const descuentosItems = factura.detalles?.reduce((sum: number, d: any) => sum + (d.descuento || 0), 0) || 0
+                      return (factura.descuentos || 0) - descuentosItems
+                    })()) }}
+                  </span>
+                </div>
+                
+                <!-- Total con descuentos -->
+                <div class="flex justify-between font-semibold text-gray-900 pt-2 border-t border-gray-300">
                   <span>Total:</span>
                   <span>{{ formatMoney(factura.total) }}</span>
                 </div>

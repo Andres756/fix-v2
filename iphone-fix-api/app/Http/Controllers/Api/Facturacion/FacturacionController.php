@@ -55,25 +55,33 @@ class FacturacionController extends Controller
                 'entregado' => 'nullable|boolean',
                 'monto_recibido' => 'nullable|numeric|min:0',
                 
+                // ✅ Descuento global
+                'descuento_global' => 'nullable|numeric|min:0',
+                'descuento_global_tipo' => 'nullable|in:valor,porcentaje',
+                
                 // Para venta directa
                 'items' => 'required_if:origen,venta|array|min:1',
                 'items.*.inventario_id' => 'required|exists:inventarios,id',
                 'items.*.cantidad' => 'required|integer|min:1',
                 'items.*.tipo_precio' => 'nullable|in:DET,MAY',
                 'items.*.precio_unitario' => 'nullable|numeric|min:0',
+                
+                // ✅ Descuento por ítem
                 'items.*.descuento' => 'nullable|numeric|min:0',
+                'items.*.descuento_tipo' => 'nullable|in:valor,porcentaje',
                 'items.*.entregado' => 'nullable|boolean',
+                
+                // ✅ Pagos múltiples
+                'pagos' => 'nullable|array',
+                'pagos.*.forma_pago_id' => 'required|exists:formas_pago,id',
+                'pagos.*.valor' => 'required|numeric|min:0',
+                'pagos.*.referencia_externa' => 'nullable|string|max:100',
+                'pagos.*.observaciones' => 'nullable|string|max:255',
                 
                 // Para servicio
                 'orden_servicio_id' => 'required_if:origen,servicio|exists:ordenes_servicio,id',
                 'equipos_seleccionados' => 'nullable|array',
                 'equipos_seleccionados.*' => 'exists:equipos_orden_servicio,id',
-                
-                // Pagos múltiples
-                'pagos' => 'nullable|array',
-                'pagos.*.forma_pago_id' => 'required|exists:formas_pago,id',
-                'pagos.*.valor' => 'required|numeric|min:0',
-                'pagos.*.referencia_externa' => 'nullable|string|max:100',
             ]);
             
             Log::info('✅ Validación exitosa:', $validated);
@@ -109,28 +117,22 @@ class FacturacionController extends Controller
                     Auth::id()
                 );
             } else {
-                // Facturar servicio
+                // ✅ CAMBIAR ESTO: Pasar todo el payload en lugar de parámetros individuales
                 $resultado = $this->facturacionService->crearFacturaServicio(
-                    $validated['orden_servicio_id'],
-                    $validated['cliente_id'] ?? null,
-                    $validated['forma_pago_id'] ?? null,
-                    Auth::id(),
-                    $validated['observaciones'] ?? null,
-                    $validated['equipos_seleccionados'] ?? null,
-                    $validated['entregado'] ?? true
+                    $validated,
+                    Auth::id()
                 );
             }
 
             Log::info('✅ Factura creada exitosamente');
 
-            $factura = $resultado instanceof \Illuminate\Database\Eloquent\Model
-                ? $resultado
-                : ($resultado['factura'] ?? $resultado);
+            $factura = $resultado['factura'] ?? $resultado;
+            $vueltas = $resultado['vueltas'] ?? 0;
 
             return response()->json([
                 'message' => 'Factura creada correctamente',
                 'factura' => $factura,
-                'vueltas' => $resultado['vueltas'] ?? 0,
+                'vueltas' => $vueltas,
             ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -697,7 +699,7 @@ class FacturacionController extends Controller
     public function obtenerUrlImpresion(int $id)
     {
         try {
-            $factura = \App\Models\Facturacion\Factura::findOrFail($id);
+            $factura = Factura::findOrFail($id);
 
             // 🔹 Por ahora devolvemos la URL de ticket PDF
             $urlTicket = url("/api/facturacion/facturas/{$id}/ticket");

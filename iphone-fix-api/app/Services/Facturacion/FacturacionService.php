@@ -37,14 +37,14 @@ class FacturacionService
 
     /**
      * Crear factura de venta directa o mayorista
-     * Ahora soporta ventas a clientes Y proveedores
+     * Soporta: clientes/proveedores, descuentos ($ y %), pagos múltiples
      */
     public function crearFacturaVenta(array $payload, int $usuarioId)
     {
         DB::beginTransaction();
 
         try {
-            // Validar que venga cliente_id O proveedor_id
+            // Validar destinatario
             $destinatarioTipo = $payload['destinatario_tipo'] ?? 'cliente';
             
             if ($destinatarioTipo === 'cliente' && empty($payload['cliente_id'])) {
@@ -59,7 +59,7 @@ class FacturacionService
                 ]);
             }
 
-            // ⚙️ Determinar estado inicial
+            // Estado inicial
             $estadoPend = EstadoFactura::where('codigo', 'PEND')->firstOrFail();
 
             // 🧾 Crear factura base
@@ -78,73 +78,183 @@ class FacturacionService
                 'fecha_emision'  => now(),
                 'prefijo'        => null,
                 'consecutivo'    => null,
+                'observaciones'  => $payload['observaciones'] ?? null,
+                'entregado'      => $payload['entregado'] ?? false,
             ]);
 
-            $subtotal = 0;
-            $impuestos = 0;
-            $descuentos = 0;
+            $subtotalGeneral = 0;
+            $descuentosItemsTotal = 0;
 
-            // 🧮 Detalle de ítems
+            // 🧮 Procesar cada ítem
             foreach ($payload['items'] as $it) {
                 $inventario = Inventario::findOrFail($it['inventario_id']);
                 $tipoPrecio = strtoupper($it['tipo_precio'] ?? 'DET');
 
-                // 🏷️ Prioridad: usar el precio enviado desde el frontend si viene
-                $valorUnitario = isset($it['precio_unitario']) && is_numeric($it['precio_unitario'])
+                // Determinar precio unitario
+                $precioUnitario = isset($it['precio_unitario']) && is_numeric($it['precio_unitario'])
                     ? (float) $it['precio_unitario']
                     : (($tipoPrecio === 'MAY')
                         ? (float) ($inventario->precio_mayor ?? $inventario->precio_venta ?? 0)
                         : (float) ($inventario->precio_venta ?? 0));
 
                 $cantidad = (int) $it['cantidad'];
-                $desc = (float) ($it['descuento'] ?? 0);
-                $totalLinea = ($valorUnitario * $cantidad) - $desc;
+                $subtotalItem = $precioUnitario * $cantidad;
 
-                // Crear detalle
+                // 💰 Calcular descuento del ítem ($ o %)
+                $descuentoItem = 0;
+                $descuentoTipoItem = $it['descuento_tipo'] ?? 'valor';
+                $descuentoValorItem = (float) ($it['descuento'] ?? 0);
+
+                if ($descuentoTipoItem === 'porcentaje') {
+                    // Descuento porcentual
+                    $descuentoItem = ($subtotalItem * $descuentoValorItem) / 100;
+                } else {
+                    // Descuento en valor fijo
+                    $descuentoItem = $descuentoValorItem;
+                }
+
+                // Validar que el descuento no exceda el subtotal
+                if ($descuentoItem > $subtotalItem) {
+                    $descuentoItem = $subtotalItem;
+                }
+
+                $totalItem = $subtotalItem - $descuentoItem;
+
+                // ✅ Crear detalle
                 FacturaDetalle::create([
                     'factura_id'     => $factura->id,
                     'inventario_id'  => $inventario->id,
                     'descripcion'    => $inventario->nombre,
                     'cantidad'       => $cantidad,
-                    'precio_unitario'=> $valorUnitario,
-                    'descuento'      => $desc,
+                    'valor_unitario' => $precioUnitario,
+                    'descuento'      => $descuentoItem,  // Guardamos el descuento YA CALCULADO
                     'impuesto'       => 0,
-                    'total'          => $totalLinea,
+                    'total'          => $totalItem,
                     'tipo'           => self::TIPO_ITEM_PRODUCTO,
-                    'referencia_id'  => $inventario->id,  // ✅ AGREGAR ESTO
                     'entregado'      => $it['entregado'] ?? false,
                 ]);
 
-                // Descontar inventario
+                // Verificar y descontar stock
                 if ($inventario->stock < $cantidad) {
                     DB::rollBack();
                     throw ValidationException::withMessages([
-                        'stock' => "No hay suficiente stock para {$inventario->nombre}. Disponible: {$inventario->stock}"
+                        'stock' => "Stock insuficiente para {$inventario->nombre}. Disponible: {$inventario->stock}"
                     ]);
                 }
 
                 $inventario->stock -= $cantidad;
                 $inventario->save();
 
-                $subtotal += $totalLinea;
+                // Acumular totales
+                $subtotalGeneral += $subtotalItem;
+                $descuentosItemsTotal += $descuentoItem;
             }
 
-            // Actualizar totales en factura
-            $factura->subtotal = $subtotal;
-            $factura->impuestos = $impuestos;
-            $factura->descuentos = $descuentos;
-            $factura->total = $subtotal + $impuestos - $descuentos;
+            // 💰 Calcular descuento GLOBAL ($ o %)
+            $descuentoGlobal = 0;
+            $descuentoGlobalTipo = $payload['descuento_global_tipo'] ?? 'valor';
+            $descuentoGlobalValor = (float) ($payload['descuento_global'] ?? 0);
+
+            // El descuento global se aplica sobre el subtotal DESPUÉS de descuentos individuales
+            $subtotalConDescuentosItems = $subtotalGeneral - $descuentosItemsTotal;
+
+            if ($descuentoGlobalTipo === 'porcentaje') {
+                $descuentoGlobal = ($subtotalConDescuentosItems * $descuentoGlobalValor) / 100;
+            } else {
+                $descuentoGlobal = $descuentoGlobalValor;
+            }
+
+            // Validar que el descuento global no exceda el subtotal
+            if ($descuentoGlobal > $subtotalConDescuentosItems) {
+                $descuentoGlobal = $subtotalConDescuentosItems;
+            }
+
+            // ✅ NUEVO: Distribuir el descuento global proporcionalmente entre los ítems
+            if ($descuentoGlobal > 0 && $subtotalConDescuentosItems > 0) {
+                foreach ($factura->detalles as $detalle) {
+                    // Calcular el subtotal del ítem después de su descuento individual
+                    $subtotalItemConDescuento = ($detalle->valor_unitario * $detalle->cantidad) - $detalle->descuento;
+                    
+                    // Calcular la proporción de este ítem sobre el total
+                    $proporcion = $subtotalItemConDescuento / $subtotalConDescuentosItems;
+                    
+                    // Calcular cuánto del descuento global le corresponde a este ítem
+                    $descuentoGlobalItem = $descuentoGlobal * $proporcion;
+                    
+                    // Actualizar el descuento del detalle (sumar el descuento individual + proporcional del global)
+                    $descuentoTotalItem = $detalle->descuento + $descuentoGlobalItem;
+                    
+                    // Recalcular el total del ítem
+                    $nuevoTotalItem = ($detalle->valor_unitario * $detalle->cantidad) - $descuentoTotalItem;
+                    
+                    // Actualizar el detalle
+                    $detalle->update([
+                        'descuento' => $descuentoTotalItem,
+                        'total' => $nuevoTotalItem
+                    ]);
+                }
+            }
+
+            // Total de descuentos
+            $descuentosTotal = $descuentosItemsTotal + $descuentoGlobal;
+
+            // Total final
+            $totalFinal = $subtotalGeneral - $descuentosTotal;
+
+            // Actualizar factura
+            $factura->subtotal = $subtotalGeneral;
+            $factura->impuestos = 0;
+            $factura->descuentos = $descuentosTotal;
+            $factura->total = $totalFinal;
             $factura->save();
 
             // Generar código
             $factura->codigo = 'FAC-' . str_pad($factura->id, 6, '0', STR_PAD_LEFT);
             $factura->save();
 
+            \Log::info('💰 Totales calculados:', [
+                'subtotal_general' => $subtotalGeneral,
+                'descuentos_items' => $descuentosItemsTotal,
+                'descuento_global' => $descuentoGlobal,
+                'descuentos_total' => $descuentosTotal,
+                'total_final' => $totalFinal
+            ]);
+
+            // 💳 Registrar pagos si existen
+            $totalPagado = 0;
+            if (!empty($payload['pagos'])) {
+                foreach ($payload['pagos'] as $pago) {
+                    $valorPago = (float) $pago['valor'];
+                    
+                    if ($valorPago > 0) {
+                        PagoFactura::create([
+                            'factura_id'        => $factura->id,
+                            'forma_pago_id'     => $pago['forma_pago_id'],
+                            'valor'             => $valorPago,
+                            'referencia_externa'=> $pago['referencia_externa'] ?? null,
+                            'observaciones'     => $pago['observaciones'] ?? null,
+                            'usuario_id'        => $usuarioId,
+                        ]);
+                        
+                        $totalPagado += $valorPago;
+                    }
+                }
+
+                // Actualizar estado si está completamente pagada
+                if ($totalPagado >= $factura->total) {
+                    $estadoPagada = EstadoFactura::where('codigo', 'PAGA')->first();
+                    if ($estadoPagada) {
+                        $factura->estado_id = $estadoPagada->id;
+                        $factura->save();
+                    }
+                }
+            }
+
             // Auditoría
             FacturaAuditoria::create([
                 'factura_id' => $factura->id,
                 'usuario_id' => $usuarioId,
-                'accion'     => 'EDITAR',  // ✅ Usar un valor que exista en el ENUM
+                'accion'     => 'EDITAR',
                 'detalle'    => $destinatarioTipo === 'cliente' 
                     ? "Factura creada para cliente ID {$payload['cliente_id']}"
                     : "Factura creada para proveedor ID {$payload['proveedor_id']}",
@@ -153,14 +263,23 @@ class FacturacionService
 
             DB::commit();
 
+            // Calcular vueltas
+            $vueltas = $totalPagado > $factura->total ? $totalPagado - $factura->total : 0;
+
             // Recargar con relaciones
-            return $factura->fresh([
+            $factura->fresh([
                 'cliente',
                 'proveedor',
                 'detalles.inventario',
                 'estado',
-                'tipoVenta'
+                'tipoVenta',
+                'pagos'
             ]);
+
+            return [
+                'factura' => $factura,
+                'vueltas' => $vueltas
+            ];
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -169,131 +288,198 @@ class FacturacionService
     }
 
     /**
-     * Crear factura desde una Orden de Servicio cerrada/finalizada
+     * Crear factura desde una Orden de Servicio
+     * Soporta pagos múltiples y descuentos ($ y %)
      */
-    public function crearFacturaServicio(
-        int $ordenId,
-        ?int $clienteId = null,
-        ?int $formaPagoId,
-        int $usuarioId,
-        ?string $observaciones = null,
-        ?array $equiposSeleccionados = null,
-        bool $entregado = true
-    ): Factura {
-        $os = OrdenServicio::with([
-            'equipos.tareas',
-            'equipos.repuestosInventario.inventario',
-            'equipos.repuestosExternos'
-        ])->findOrFail($ordenId);
-
-        $clienteId = $os->cliente_id;
-
-        // Equipos pendientes por facturar
-        $equipos = $os->equipos->filter(function ($eq) {
-            return strtolower(trim($eq->estado)) === 'finalizado' && (int)$eq->facturado === 0;
-        });
-
-        if (!empty($equiposSeleccionados)) {
-            $equipos = $equipos->filter(fn($eq) => in_array($eq->id, $equiposSeleccionados));
-        }
-
-        if ($equipos->isEmpty()) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'equipos' => 'No hay equipos finalizados pendientes por facturar.'
-            ]);
-        }
-
-        $tipoSrv   = \App\Models\Parametros\TipoVenta::where('codigo', self::COD_SRV)->firstOrFail();
-        $estadoPend= \App\Models\Facturacion\EstadoFactura::where('codigo', self::EST_PEND)->firstOrFail();
-
-        // 🔎 Buscar si ya existe una factura pendiente para esta orden
-        $factura = \App\Models\Facturacion\Factura::where('orden_servicio_id', $ordenId)
-            ->where('estado_id', $estadoPend->id)
-            ->first();
+    public function crearFacturaServicio(array $payload, int $usuarioId)
+    {
+        DB::beginTransaction();
         
-        $estadoPend = \App\Models\Facturacion\EstadoFactura::where('codigo', 'PEND')->firstOrFail();
+        try {
+            $ordenId = $payload['orden_servicio_id'];
+            $equiposSeleccionados = $payload['equipos_seleccionados'] ?? null;
+            $entregado = $payload['entregado'] ?? true;
+            
+            $os = OrdenServicio::with([
+                'equipos.tareas',
+                'equipos.repuestosInventario.inventario',
+                'equipos.repuestosExternos'
+            ])->findOrFail($ordenId);
 
-        $subtotal = 0;
+            $clienteId = $os->cliente_id;
 
-        if (!$factura) {
-            // 🆕 Crear nueva factura si no existe
-            $factura = \App\Models\Facturacion\Factura::create([
-                'orden_servicio_id' => $ordenId,
-                'cliente_id'        => $clienteId,
-                'usuario_id'        => $usuarioId,
-                'tipo_venta_id'     => $tipoSrv->id,
-                'forma_pago_id'     => $formaPagoId,
-                'estado_id'         => $estadoPend->id,
-                'subtotal'          => 0,
-                'impuestos'         => 0,
-                'descuentos'        => 0,
-                'total'             => 0,
-                'observaciones'     => $observaciones,
-                'es_prefactura'     => 0,
-                'fecha_emision'     => now(),
-                'entregado'         => $entregado ? 1 : 0,
-                'estado_id' => $estadoPend->id,
-            ]);
+            // Equipos pendientes por facturar
+            $equipos = $os->equipos->filter(function ($eq) {
+                return strtolower(trim($eq->estado)) === 'finalizado' && (int)$eq->facturado === 0;
+            });
 
-            // 🔢 Generar código y consecutivo SOLO en la creación
-            $param = \App\Models\Parametros\ParametroFacturacion::first();
-            if ($param) {
-                $nuevoConsec = $param->consecutivo_actual + 1;
-                $codigo = "{$param->prefijo}-" . date('Y') . "-" . str_pad($nuevoConsec, 5, '0', STR_PAD_LEFT);
-                $factura->update([
-                    'codigo'      => $codigo,
-                    'prefijo'     => $param->prefijo,
-                    'consecutivo' => $nuevoConsec,
-                ]);
-                $param->update(['consecutivo_actual' => $nuevoConsec]);
+            if (!empty($equiposSeleccionados)) {
+                $equipos = $equipos->filter(fn($eq) => in_array($eq->id, $equiposSeleccionados));
             }
-        }
 
-        // 🧾 Agregar o sumar detalles de equipos nuevos
-        foreach ($equipos as $eq) {
-            $manoObra = (float)$eq->tareas->sum('costo_aplicado');
-            $valorRepInv = (float)$eq->repuestosInventario->sum(fn($r) => $r->cantidad * $r->costo_unitario_aplicado);
-            $valorRepExt = (float)$eq->repuestosExternos->sum('costo_total');
-            $valorTotalEquipo = $manoObra + $valorRepInv + $valorRepExt;
+            if ($equipos->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'equipos' => 'No hay equipos finalizados pendientes por facturar.'
+                ]);
+            }
 
-            if ($valorTotalEquipo <= 0) continue;
+            $tipoSrv = TipoVenta::where('codigo', self::COD_SRV)->firstOrFail();
+            $estadoPend = EstadoFactura::where('codigo', self::EST_PEND)->firstOrFail();
 
-            \App\Models\Facturacion\FacturaDetalle::create([
-                'factura_id'     => $factura->id,
-                'tipo_item'      => self::TIPO_ITEM_OS_EQUIPO,
-                'referencia_id'  => $eq->id,
-                'descripcion'    => "Servicio técnico - Equipo {$eq->imei_serial}",
-                'cantidad'       => 1,
-                'valor_unitario' => $valorTotalEquipo,
-                'total'          => $valorTotalEquipo,
-                'entregado'      => $entregado ? 1 : 0,
+            // 🔎 Buscar si ya existe una factura pendiente para esta orden
+            $factura = Factura::where('orden_servicio_id', $ordenId)
+                ->where('estado_id', $estadoPend->id)
+                ->first();
+
+            $subtotal = 0;
+
+            if (!$factura) {
+                // 🆕 Crear nueva factura
+                $factura = Factura::create([
+                    'orden_servicio_id' => $ordenId,
+                    'cliente_id'        => $clienteId,
+                    'usuario_id'        => $usuarioId,
+                    'tipo_venta_id'     => $tipoSrv->id,
+                    'forma_pago_id'     => $payload['forma_pago_id'] ?? null,
+                    'estado_id'         => $estadoPend->id,
+                    'subtotal'          => 0,
+                    'impuestos'         => 0,
+                    'descuentos'        => 0,
+                    'total'             => 0,
+                    'observaciones'     => $payload['observaciones'] ?? null,
+                    'es_prefactura'     => 0,
+                    'fecha_emision'     => now(),
+                    'entregado'         => $entregado ? 1 : 0,
+                ]);
+
+                // 🔢 Generar código
+                $param = \App\Models\Parametros\ParametroFacturacion::first();
+                if ($param) {
+                    $nuevoConsec = $param->consecutivo_actual + 1;
+                    $codigo = "{$param->prefijo}-" . date('Y') . "-" . str_pad($nuevoConsec, 5, '0', STR_PAD_LEFT);
+                    $factura->update([
+                        'codigo'      => $codigo,
+                        'prefijo'     => $param->prefijo,
+                        'consecutivo' => $nuevoConsec,
+                    ]);
+                    $param->update(['consecutivo_actual' => $nuevoConsec]);
+                }
+            }
+
+            // 🧾 Agregar detalles de equipos
+            foreach ($equipos as $eq) {
+                $manoObra = (float)$eq->tareas->sum('costo_aplicado');
+                $valorRepInv = (float)$eq->repuestosInventario->sum(fn($r) => $r->cantidad * $r->costo_unitario_aplicado);
+                $valorRepExt = (float)$eq->repuestosExternos->sum('costo_total');
+                $valorTotalEquipo = $manoObra + $valorRepInv + $valorRepExt;
+
+                if ($valorTotalEquipo <= 0) continue;
+
+                FacturaDetalle::create([
+                    'factura_id'     => $factura->id,
+                    'tipo_item'      => self::TIPO_ITEM_OS_EQUIPO,
+                    'referencia_id'  => $eq->id,
+                    'descripcion'    => "Servicio técnico - Equipo {$eq->imei_serial}",
+                    'cantidad'       => 1,
+                    'valor_unitario' => $valorTotalEquipo,
+                    'descuento'      => 0,  // Los equipos no tienen descuento individual
+                    'total'          => $valorTotalEquipo,
+                    'entregado'      => $entregado ? 1 : 0,
+                ]);
+
+                $subtotal += $valorTotalEquipo;
+
+                // Actualizar equipo
+                $eq->update([
+                    'facturado' => 1,
+                    'entregado' => $entregado ? 1 : 0,
+                ]);
+            }
+
+            // 💰 Calcular descuento GLOBAL ($ o %)
+            $descuentoGlobal = 0;
+            $descuentoGlobalTipo = $payload['descuento_global_tipo'] ?? 'valor';
+            $descuentoGlobalValor = (float) ($payload['descuento_global'] ?? 0);
+
+            if ($descuentoGlobalTipo === 'porcentaje') {
+                $descuentoGlobal = ($subtotal * $descuentoGlobalValor) / 100;
+            } else {
+                $descuentoGlobal = $descuentoGlobalValor;
+            }
+
+            // Validar que el descuento no exceda el subtotal
+            if ($descuentoGlobal > $subtotal) {
+                $descuentoGlobal = $subtotal;
+            }
+
+            $totalFinal = $subtotal - $descuentoGlobal;
+
+            // 🧮 Actualizar totales
+            $factura->update([
+                'subtotal'   => $subtotal,
+                'descuentos' => $descuentoGlobal,
+                'total'      => $totalFinal,
             ]);
 
-            $subtotal += $valorTotalEquipo;
-
-            // Actualizar equipo
-            $eq->update([
-                'facturado' => 1,
-                'entregado' => $entregado ? 1 : 0,
+            \Log::info('💰 Totales servicio:', [
+                'subtotal' => $subtotal,
+                'descuento_global' => $descuentoGlobal,
+                'total_final' => $totalFinal
             ]);
+
+            // 💳 Registrar pagos si existen
+            $totalPagado = 0;
+            if (!empty($payload['pagos'])) {
+                foreach ($payload['pagos'] as $pago) {
+                    $valorPago = (float) $pago['valor'];
+                    
+                    if ($valorPago > 0) {
+                        PagoFactura::create([
+                            'factura_id'        => $factura->id,
+                            'forma_pago_id'     => $pago['forma_pago_id'],
+                            'valor'             => $valorPago,
+                            'referencia_externa'=> $pago['referencia_externa'] ?? null,
+                            'observaciones'     => $pago['observaciones'] ?? null,
+                            'usuario_id'        => $usuarioId,
+                        ]);
+                        
+                        $totalPagado += $valorPago;
+                    }
+                }
+
+                // Actualizar estado si está completamente pagada
+                if ($totalPagado >= $factura->total) {
+                    $estadoPagada = EstadoFactura::where('codigo', 'PAGA')->first();
+                    if ($estadoPagada) {
+                        $factura->estado_id = $estadoPagada->id;
+                        $factura->save();
+                    }
+                }
+            }
+
+            // Auditoría
+            FacturaAuditoria::create([
+                'factura_id' => $factura->id,
+                'usuario_id' => $usuarioId,
+                'accion'     => 'EDITAR',
+                'detalle'    => 'Factura creada desde orden de servicio. Entregado: ' . ($entregado ? 'Sí' : 'No'),
+                'created_at' => now(),
+            ]);
+
+            DB::commit();
+
+            // Calcular vueltas
+            $vueltas = $totalPagado > $factura->total ? $totalPagado - $factura->total : 0;
+
+            return [
+                'factura' => $factura->fresh(['cliente', 'detalles', 'estado', 'pagos']),
+                'vueltas' => $vueltas
+            ];
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw $e;
         }
-
-        // 🧮 Recalcular totales acumulados
-        $factura->update([
-            'subtotal' => $factura->subtotal + $subtotal,
-            'total'    => $factura->total + $subtotal,
-        ]);
-
-        // Auditoría
-        FacturaAuditoria::create([
-            'factura_id' => $factura->id,
-            'usuario_id' => $usuarioId,
-            'accion'     => 'EDITAR',
-            'detalle'    => 'Se agregaron equipos a la factura existente (orden de servicio).',
-            'created_at' => now(),
-        ]);
-
-        return $factura->fresh(['cliente', 'detalles', 'estado']);
     }
 
     /**
@@ -489,19 +675,20 @@ class FacturacionService
     }
 
     /**
-     * 📄 Listado de facturas (recalcula saldo y total pagado)
+     * 📄 Listado de facturas (usa el total de la BD con descuentos, recalcula solo saldo)
      */
     public function listarResumen(array $filters = [])
     {
         $query = Factura::query()
             ->with([
                 'cliente', 
+                'proveedor',  // ✅ NUEVO: Agregar proveedor
                 'usuario', 
                 'formaPago', 
                 'estado', 
                 'tipoVenta',
-                'detalles.estado',  // ✅ Cargar detalles con su estado
-                'pagos'             // ✅ Cargar pagos
+                'detalles.estado',
+                'pagos'
             ])
             ->orderByDesc('fecha_emision');
 
@@ -542,25 +729,25 @@ class FacturacionService
         $perPage = $filters['per_page'] ?? 20;
         $facturas = $query->paginate($perPage);
 
-        // 🔹 Recalcular totales usando las relaciones YA CARGADAS (no nuevas queries)
+        // 🔹 Calcular SOLO total_pagado y saldo_pendiente
+        // El campo "total" de la BD YA incluye descuentos, NO lo recalcules
         $facturas->getCollection()->transform(function ($factura) {
-            // ✅ Usar la colección ya cargada, no hacer nueva query
-            $totalReal = $factura->detalles
-                ->filter(fn($detalle) => $detalle->estado?->codigo !== 'ANUL')
-                ->sum('total');
+            // ✅ Usar el total de la BD (YA incluye todos los descuentos aplicados)
+            $totalFactura = (float) $factura->total;
 
-            // ✅ Usar la colección de pagos ya cargada
+            // ✅ Calcular total pagado (solo pagos no anulados)
             $totalPagado = $factura->pagos
                 ->filter(fn($pago) => $pago->estado !== 'anulado')
                 ->sum('valor');
 
-            // 🔹 Calcular saldo con el total actualizado
-            $saldoPendiente = max($totalReal - $totalPagado, 0);
+            // ✅ Calcular saldo pendiente
+            $saldoPendiente = max($totalFactura - $totalPagado, 0);
 
             // 🔹 Asignar valores calculados dinámicamente
-            $factura->total = $totalReal;
             $factura->total_pagado = $totalPagado;
             $factura->saldo_pendiente = $saldoPendiente;
+
+            // ⚠️ NO TOCAR factura->total, ya está correcto en la BD
 
             return $factura;
         });

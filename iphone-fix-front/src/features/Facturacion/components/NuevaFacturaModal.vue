@@ -264,20 +264,42 @@
                           <td class="px-4 py-2">{{ item.nombre }}</td>
                           <td class="px-4 py-2 text-center">{{ item.cantidad }}</td>
                           <td class="px-4 py-2 text-center">{{ formatMoney(item.precio) }}</td>
-                          <!-- ✅ NUEVO: Campo de descuento por ítem -->
+                          
+                          <!-- ✅ Campo de descuento por ítem CON SELECTOR DE TIPO -->
                           <td class="px-4 py-2 text-center">
-                            <input
-                              type="number"
-                              v-model.number="item.descuento"
-                              min="0"
-                              :max="item.cantidad * item.precio"
-                              class="w-20 px-2 py-1 border border-gray-300 rounded text-center"
-                              placeholder="0"
-                            />
+                            <div class="flex items-center gap-1 justify-center">
+                              <input
+                                type="number"
+                                v-model.number="item.descuento"
+                                min="0"
+                                :max="item.descuento_tipo === 'porcentaje' ? 100 : (item.cantidad * item.precio)"
+                                class="w-16 px-2 py-1 border border-gray-300 rounded text-center text-sm"
+                                placeholder="0"
+                              />
+                              <select
+                                v-model="item.descuento_tipo"
+                                class="w-12 px-1 py-1 border border-gray-300 rounded text-xs"
+                              >
+                                <option value="valor">$</option>
+                                <option value="porcentaje">%</option>
+                              </select>
+                            </div>
                           </td>
+                          
+                          <!-- Subtotal calculado con descuento aplicado -->
                           <td class="px-4 py-2 text-center font-semibold">
-                            {{ formatMoney((item.cantidad * item.precio) - (item.descuento || 0)) }}
+                            {{ formatMoney((() => {
+                              const subtotalItem = item.cantidad * item.precio
+                              let descuento = 0
+                              if (item.descuento_tipo === 'porcentaje') {
+                                descuento = (subtotalItem * (item.descuento || 0)) / 100
+                              } else {
+                                descuento = item.descuento || 0
+                              }
+                              return subtotalItem - descuento
+                            })()) }}
                           </td>
+                          
                           <td class="px-4 py-2 text-center">
                             <input
                               type="checkbox"
@@ -285,6 +307,7 @@
                               class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                             />
                           </td>
+                          
                           <td class="px-4 py-2 text-center">
                             <button
                               @click="removeProducto(index)"
@@ -302,29 +325,32 @@
                   </div>
                 </div>
 
-                <!-- ✅ NUEVO: Descuento Global -->
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Descuento Global</label>
+                <!-- Descuento Global -->
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">Descuento Global</label>
+                  <div class="flex gap-2">
+                    <select
+                      v-model="ventaForm.descuento_global_tipo"
+                      class="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="valor">$</option>
+                      <option value="porcentaje">%</option>
+                    </select>
                     <input
                       v-model.number="ventaForm.descuento_global"
                       type="number"
                       min="0"
-                      :max="calcularTotalVenta()"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      :max="ventaForm.descuento_global_tipo === 'porcentaje' ? 100 : 999999999"
+                      class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="0"
                     />
                   </div>
-
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Observaciones</label>
-                    <input
-                      v-model="ventaForm.observaciones"
-                      type="text"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Notas adicionales (opcional)"
-                    />
-                  </div>
+                  <p v-if="ventaForm.descuento_global > 0" class="text-xs text-gray-500 mt-1">
+                    {{ ventaForm.descuento_global_tipo === 'porcentaje' 
+                      ? `${ventaForm.descuento_global}% de descuento` 
+                      : `Descuento de ${formatMoney(ventaForm.descuento_global)}` 
+                    }}
+                  </p>
                 </div>
 
                 <!-- Control de entrega -->
@@ -435,6 +461,63 @@
                         <span class="font-semibold text-green-600">{{ formatMoney(vueltasVenta) }}</span>
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                <!-- ✅ Resumen de totales con descuentos CORREGIDO -->
+                <div v-if="ventaForm.items.length > 0" class="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
+                  <div class="flex justify-between text-sm">
+                    <span class="text-gray-600">Subtotal (sin descuentos):</span>
+                    <span class="font-medium">
+                      {{ formatMoney(ventaForm.items.reduce((sum, item) => sum + (item.cantidad * item.precio), 0)) }}
+                    </span>
+                  </div>
+                  
+                  <!-- Descuentos por ítem calculados correctamente -->
+                  <div v-if="ventaForm.items.some(i => i.descuento > 0)" class="flex justify-between text-sm">
+                    <span class="text-gray-600">Descuentos por ítem:</span>
+                    <span class="font-medium text-red-600">
+                      - {{ formatMoney(ventaForm.items.reduce((sum, item) => {
+                        const subtotalItem = item.cantidad * item.precio
+                        if (item.descuento_tipo === 'porcentaje') {
+                          return sum + ((subtotalItem * (item.descuento || 0)) / 100)
+                        }
+                        return sum + (item.descuento || 0)
+                      }, 0)) }}
+                    </span>
+                  </div>
+                  
+                  <!-- Descuento global calculado correctamente -->
+                  <div v-if="ventaForm.descuento_global > 0" class="flex justify-between text-sm">
+                    <span class="text-gray-600">Descuento global:</span>
+                    <span class="font-medium text-red-600">
+                      - {{ (() => {
+                        // Subtotal después de descuentos por ítem
+                        const subtotalConDescItems = ventaForm.items.reduce((sum, item) => {
+                          const subtotalItem = item.cantidad * item.precio
+                          let descItem = 0
+                          if (item.descuento_tipo === 'porcentaje') {
+                            descItem = (subtotalItem * (item.descuento || 0)) / 100
+                          } else {
+                            descItem = item.descuento || 0
+                          }
+                          return sum + (subtotalItem - descItem)
+                        }, 0)
+                        
+                        // Aplicar descuento global
+                        if (ventaForm.descuento_global_tipo === 'porcentaje') {
+                          return formatMoney((subtotalConDescItems * ventaForm.descuento_global) / 100)
+                        }
+                        return formatMoney(ventaForm.descuento_global)
+                      })() }}
+                    </span>
+                  </div>
+                  
+                  <div class="pt-2 border-t border-gray-300 flex justify-between">
+                    <span class="font-semibold text-gray-700">Total con descuentos:</span>
+                    <span class="font-bold text-gray-900">
+                      {{ formatMoney(calcularTotalVenta()) }}
+                    </span>
                   </div>
                 </div>
 
@@ -608,29 +691,101 @@
                   </table>
                 </div>
 
-                <!-- Forma de pago y observaciones -->
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Forma de Pago</label>
-                    <select
-                      v-model="servicioForm.forma_pago_id"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Seleccione (opcional)</option>
-                      <option v-for="forma in formasPago" :key="forma.id" :value="forma.id">
-                        {{ forma.nombre }}
-                      </option>
-                    </select>
-                  </div>
+                <!-- ✅ NUEVO: Sección de Pagos Múltiples -->
+                <div class="border-t border-gray-200 pt-4">
+                  <button
+                    type="button"
+                    @click="toggleSeccionPagosServicio"
+                    class="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="mostrarSeccionPagosServicio ? 'M19 9l-7 7-7-7' : 'M9 5l7 7-7 7'"/>
+                    </svg>
+                    {{ mostrarSeccionPagosServicio ? 'Ocultar' : 'Agregar' }} Pagos
+                  </button>
 
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Observaciones</label>
-                    <input
-                      v-model="servicioForm.observaciones"
-                      type="text"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Notas adicionales (opcional)"
-                    />
+                  <div v-if="mostrarSeccionPagosServicio" class="mt-4 space-y-4">
+                    <div v-for="(pago, index) in pagosServicio" :key="index" class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <div class="grid grid-cols-12 gap-3">
+                        <!-- Forma de Pago -->
+                        <div class="col-span-4">
+                          <label class="block text-xs font-medium text-gray-600 mb-1">Forma de Pago *</label>
+                          <select
+                            v-model="pago.forma_pago_id"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">Seleccionar...</option>
+                            <option v-for="forma in formasPago" :key="forma.id" :value="forma.id">
+                              {{ forma.nombre }}
+                            </option>
+                          </select>
+                        </div>
+
+                        <!-- Valor -->
+                        <div class="col-span-3">
+                          <label class="block text-xs font-medium text-gray-600 mb-1">Valor *</label>
+                          <input
+                            type="number"
+                            v-model.number="pago.valor"
+                            min="0"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            placeholder="0"
+                          />
+                        </div>
+
+                        <!-- Referencia -->
+                        <div class="col-span-3">
+                          <label class="block text-xs font-medium text-gray-600 mb-1">Referencia</label>
+                          <input
+                            type="text"
+                            v-model="pago.referencia_externa"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            placeholder="Opcional"
+                          />
+                        </div>
+
+                        <!-- Botón Eliminar -->
+                        <div class="col-span-2 flex items-end">
+                          <button
+                            type="button"
+                            @click="eliminarPagoServicio(index)"
+                            class="w-full px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Botón Agregar Otro Pago -->
+                    <button
+                      type="button"
+                      @click="agregarPagoServicio"
+                      class="w-full px-4 py-2 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                      </svg>
+                      Agregar Otro Pago
+                    </button>
+
+                    <!-- Resumen de Pagos -->
+                    <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                      <div class="flex justify-between text-sm">
+                        <span class="text-gray-700">Total de Pagos:</span>
+                        <span class="font-semibold text-gray-900">{{ formatMoney(totalPagosServicio) }}</span>
+                      </div>
+                      <div class="flex justify-between text-sm">
+                        <span class="text-gray-700">Saldo Pendiente:</span>
+                        <span class="font-semibold" :class="saldoPendienteServicio > 0 ? 'text-orange-600' : 'text-green-600'">
+                          {{ formatMoney(saldoPendienteServicio) }}
+                        </span>
+                      </div>
+                      <div v-if="vueltasServicio > 0" class="flex justify-between text-sm pt-2 border-t border-blue-300">
+                        <span class="text-gray-700">Vueltas:</span>
+                        <span class="font-semibold text-green-600">{{ formatMoney(vueltasServicio) }}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -732,13 +887,14 @@ const cantidadTemp = ref(1)
 const tipoPrecioTemp = ref<'DET' | 'MAY'>('DET')
 
 const ventaForm = reactive({
-  destinatario_tipo: 'cliente' as 'cliente' | 'proveedor',  // NUEVO
+  destinatario_tipo: 'cliente' as 'cliente' | 'proveedor',
   cliente_id: '',
-  proveedor_id: '',  // NUEVO
+  proveedor_id: '',
   forma_pago_id: '',
   observaciones: '',
   entregado: false,
   descuento_global: 0,
+  descuento_global_tipo: 'valor' as 'valor' | 'porcentaje',  // ✅ DEBE ESTAR AQUÍ
   items: [] as any[]
 })
 
@@ -751,6 +907,16 @@ const pagosVenta = ref<Array<{
 }>>([])
 
 const mostrarSeccionPagos = ref(false)
+
+// =================== PAGOS PARA SERVICIO ===================
+const pagosServicio = ref<Array<{
+  forma_pago_id: number | ''
+  valor: number
+  referencia_externa: string
+  observaciones: string
+}>>([])
+
+const mostrarSeccionPagosServicio = ref(false)
 
 // =================== FACTURAR SERVICIO ===================
 const searchClienteServicio = ref('')
@@ -766,7 +932,48 @@ const servicioForm = ref({
   forma_pago_id: '',
   observaciones: '',
   entregado: true,
-  equipos_seleccionados: [] as number[]
+  equipos_seleccionados: [] as number[],
+  descuento_global: 0,  // ✅ NUEVO
+  descuento_global_tipo: 'valor' as 'valor' | 'porcentaje'  // ✅ NUEVO
+})
+
+// =================== FUNCIONES DE PAGOS SERVICIO ===================
+function agregarPagoServicio() {
+  pagosServicio.value.push({
+    forma_pago_id: '',
+    valor: 0,
+    referencia_externa: '',
+    observaciones: ''
+  })
+}
+
+function eliminarPagoServicio(index: number) {
+  pagosServicio.value.splice(index, 1)
+}
+
+function toggleSeccionPagosServicio() {
+  mostrarSeccionPagosServicio.value = !mostrarSeccionPagosServicio.value
+  if (mostrarSeccionPagosServicio.value && pagosServicio.value.length === 0) {
+    agregarPagoServicio()
+  }
+}
+
+// Computeds para pagos de servicio
+const totalPagosServicio = computed(() => {
+  return pagosServicio.value.reduce((sum, p) => sum + (Number(p.valor) || 0), 0)
+})
+
+const totalServicio = computed(() => {
+  return calcularTotalServicio()
+})
+
+const saldoPendienteServicio = computed(() => {
+  return Math.max(0, totalServicio.value - totalPagosServicio.value)
+})
+
+const vueltasServicio = computed(() => {
+  const diferencia = totalPagosServicio.value - totalServicio.value
+  return diferencia > 0 ? diferencia : 0
 })
 
 // =================== FUNCIONES VENTA DIRECTA ===================
@@ -791,6 +998,37 @@ async function buscarDestinatarios() {
     console.error('Error buscando destinatarios:', error)
     destinatariosFiltrados.value = []
   }
+}
+
+function calcularTotalServicio() {
+  if (!ordenSeleccionadaId.value) return 0
+  
+  const equiposSeleccionados = equiposOrdenSeleccionada.value.filter(
+    eq => servicioForm.value.equipos_seleccionados.includes(eq.id)
+  )
+  
+  // Subtotal de equipos
+  const subtotal = equiposSeleccionados.reduce((sum, eq) => {
+    const manoObra = eq.tareas?.reduce((s: number, t: any) => s + (t.costo_aplicado || 0), 0) || 0
+    const repuestosInternos = eq.repuestos_inventario?.reduce((s: number, r: any) => 
+      s + ((r.cantidad || 0) * (r.costo_unitario_aplicado || 0)), 0) || 0
+    const repuestosExternos = eq.repuestos_externos?.reduce((s: number, r: any) => 
+      s + (r.costo_total || 0), 0) || 0
+    
+    return sum + manoObra + repuestosInternos + repuestosExternos
+  }, 0)
+  
+  // Calcular descuento global (valor o porcentaje)
+  let descuentoGlobal = 0
+  if (servicioForm.value.descuento_global_tipo === 'porcentaje') {
+    descuentoGlobal = (subtotal * (servicioForm.value.descuento_global || 0)) / 100
+  } else {
+    descuentoGlobal = Number(servicioForm.value.descuento_global) || 0
+  }
+  
+  const totalFinal = Math.max(0, subtotal - descuentoGlobal)
+  
+  return totalFinal
 }
 
 function seleccionarDestinatario(destinatario: any) {
@@ -862,18 +1100,32 @@ function removeProducto(index: number) {
 }
 
 function calcularTotalVenta() {
-  // Subtotal de items (con descuentos por ítem)
-  const subtotal = ventaForm.items.reduce((sum, item) => {
+  // Subtotal de items con descuentos individuales ($ o %)
+  const subtotalConDescuentosItems = ventaForm.items.reduce((sum, item) => {
     const subtotalItem = item.cantidad * (item.precio || 0)
-    const descuentoItem = item.descuento || 0
+    
+    // Calcular descuento del ítem (valor o porcentaje)
+    let descuentoItem = 0
+    if (item.descuento_tipo === 'porcentaje') {
+      descuentoItem = (subtotalItem * (item.descuento || 0)) / 100
+    } else {
+      descuentoItem = item.descuento || 0
+    }
+    
     return sum + (subtotalItem - descuentoItem)
   }, 0)
   
-  // Aplicar descuento global
-  const descuentoGlobal = ventaForm.descuento_global || 0
-  const total = Math.max(0, subtotal - descuentoGlobal)
+  // Calcular descuento global (valor o porcentaje)
+  let descuentoGlobal = 0
+  if (ventaForm.descuento_global_tipo === 'porcentaje') {
+    descuentoGlobal = (subtotalConDescuentosItems * (ventaForm.descuento_global || 0)) / 100
+  } else {
+    descuentoGlobal = Number(ventaForm.descuento_global) || 0
+  }
   
-  return total
+  const totalFinal = Math.max(0, subtotalConDescuentosItems - descuentoGlobal)
+  
+  return totalFinal
 }
 
 // ✅ NUEVO: Computeds para pagos
@@ -1039,18 +1291,20 @@ async function handleSubmitVenta() {
       forma_pago_id: ventaForm.forma_pago_id ? Number(ventaForm.forma_pago_id) : undefined,
       observaciones: ventaForm.observaciones || undefined,
       entregado: ventaForm.entregado,
-      descuento_global: ventaForm.descuento_global || 0,  // ✅ NUEVO
+      descuento_global: ventaForm.descuento_global || 0,
+      descuento_global_tipo: ventaForm.descuento_global_tipo,  // ✅ AGREGAR ESTA LÍNEA
       items: itemsValidos.map(item => ({
         inventario_id: Number(item.inventario_id),
         cantidad: Number(item.cantidad),
         tipo_precio: item.tipo_precio,
         precio_unitario: Number(item.precio ?? item.precio_unitario ?? 0),
-        descuento: Number(item.descuento || 0),  // ✅ NUEVO
+        descuento: Number(item.descuento || 0),
+        descuento_tipo: item.descuento_tipo,  // ✅ AGREGAR ESTA LÍNEA
         entregado: item.entregado,
       })),
     }
 
-    // ✅ NUEVO: Agregar pagos si existen
+    // ✅ Agregar pagos si existen
     if (pagosVenta.value.length > 0) {
       const pagosValidos = pagosVenta.value.filter(p => p.forma_pago_id && p.valor > 0)
       if (pagosValidos.length > 0) {
@@ -1100,49 +1354,60 @@ async function buscarProductos() {
 
 // =================== SUBMIT SERVICIO ===================
 async function handleSubmitServicio() {
-  if (isSaving.value) return // Prevenir doble envío
-  
-  if (!clienteSeleccionadoServicio.value?.id) {
-    toast.warning('Debe seleccionar un cliente')
-    return
-  }
-  
+  if (isSaving.value) return
+
   if (!ordenSeleccionadaId.value) {
     toast.warning('Debe seleccionar una orden de servicio')
     return
   }
-  
+
   if (servicioForm.value.equipos_seleccionados.length === 0) {
     toast.warning('Debe seleccionar al menos un equipo')
     return
   }
-  
+
   try {
     isSaving.value = true
-    
-    const payload = {
+
+    const payload: any = {
       origen: 'servicio' as const,
-      cliente_id: Number(clienteSeleccionadoServicio.value.id),
       orden_servicio_id: Number(ordenSeleccionadaId.value),
       forma_pago_id: servicioForm.value.forma_pago_id ? Number(servicioForm.value.forma_pago_id) : undefined,
       observaciones: servicioForm.value.observaciones || undefined,
       entregado: servicioForm.value.entregado,
       equipos_seleccionados: servicioForm.value.equipos_seleccionados
     }
+
+    // ✅ NUEVO: Agregar pagos si existen
+    if (pagosServicio.value.length > 0) {
+      const pagosValidos = pagosServicio.value.filter(p => p.forma_pago_id && p.valor > 0)
+      if (pagosValidos.length > 0) {
+        payload.pagos = pagosValidos.map(p => ({
+          forma_pago_id: Number(p.forma_pago_id),
+          valor: Number(p.valor),
+          referencia_externa: p.referencia_externa || undefined,
+          observaciones: p.observaciones || undefined
+        }))
+      }
+    }
+
+    console.log('📤 Enviando factura de servicio:', JSON.stringify(payload, null, 2))
+
+    const result = await createFacturaServicio(payload)
     
-    console.log('📤 Enviando factura de servicio:', payload)
+    // ✅ Mostrar mensaje de vueltas si aplica
+    if (vueltasServicio.value > 0) {
+      toast.success(`Servicio facturado. Vueltas: ${formatMoney(vueltasServicio.value)}`)
+    } else {
+      toast.success('Servicio facturado exitosamente')
+    }
     
-    await createFacturaServicio(payload)
-    toast.success('Servicio facturado exitosamente')
-    
-    // Limpiar formulario antes de emitir eventos
     resetearFormularios()
-    
     emit('success')
     emit('close')
   } catch (error: any) {
     console.error('Error facturando servicio:', error)
-    toast.error(error.message || 'Error al facturar el servicio')
+    toast.error(error?.response?.data?.message || error.message || 'Error al facturar el servicio')
   } finally {
     isSaving.value = false
   }
@@ -1218,5 +1483,9 @@ onMounted(async () => {
     formasPago.value = []
   }
 })
+
+// ✅ NUEVO: Reset pagos servicio
+pagosServicio.value = []
+mostrarSeccionPagosServicio.value = false
 
 </script>
